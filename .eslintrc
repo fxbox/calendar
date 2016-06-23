@@ -67,6 +67,10 @@
     "worker": true
   },
 
+  "globals": {
+    "JsSpeechRecognizer"
+  },
+
   "plugins": [
     "react"
   ],

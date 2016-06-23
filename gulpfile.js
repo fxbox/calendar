@@ -88,7 +88,17 @@ gulp.task('copy-app-common', () => {
 
     // Polyfills.
     gulp.src('./node_modules/whatwg-fetch/fetch.js')
-      .pipe(rename('js/polyfills/fetch.js'))
+      .pipe(rename('js/polyfills/fetch.js')),
+
+    gulp.src('./app/js/third_party/webrtc-adapter.js')
+      .pipe(rename('js/polyfills/webrtc-adapter.js')),
+
+    gulp.src('./app/js/third_party/jsspeechrecogniser.js')
+      .pipe(rename('js/polyfills/jsspeechrecogniser.js')),
+
+    gulp.src('./app/data/wakeword_model.json')
+      .pipe(rename('data/wakeword_model.json'))
+
   )
     .pipe(gulp.dest(DIST_APP_ROOT));
 });
