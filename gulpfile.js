@@ -68,6 +68,8 @@ gulp.task('copy-app-common', () => {
   return merge(
     gulp.src([
       `${APP_ROOT}**`,
+      `${APP_ROOT}/data`,
+      `${APP_ROOT}/js/third_party`,
       // Don't copy documentation files.
       `!${APP_ROOT}**/*.md`,
       // Don't copy JS, it will be compiled and copied on the compile step.
@@ -94,11 +96,7 @@ gulp.task('copy-app-common', () => {
       .pipe(rename('js/polyfills/webrtc-adapter.js')),
 
     gulp.src('./app/js/third_party/jsspeechrecogniser.js')
-      .pipe(rename('js/polyfills/jsspeechrecogniser.js')),
-
-    gulp.src('./app/data/wakeword_model.json')
-      .pipe(rename('data/wakeword_model.json'))
-
+      .pipe(rename('js/polyfills/jsspeechrecogniser.js'))
   )
     .pipe(gulp.dest(DIST_APP_ROOT));
 });
