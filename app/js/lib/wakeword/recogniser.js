@@ -1,5 +1,7 @@
 'use strict';
 
+import JsSpeechRecognizer from 'components/jsspeechrecognizer';
+
 export default class WakeWordRecogniser {
   constructor(options={}) {
     const minimumConfidence = options.minimumConfidence || 0.35;

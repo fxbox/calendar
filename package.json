@@ -21,11 +21,13 @@
   "license": "MPL2",
   "dependencies": {
     "alameda": "^1.0.0",
+    "jsspeechrecognizer": "https://github.com/samgiles/JsSpeechRecognizer.git",
     "lodash": "^4.13.1",
     "moment": "^2.13.0",
     "react": "^15.1.0",
     "react-dom": "^15.1.0",
     "url-search-params": "^0.5.0",
+    "webrtc-adapter": "^1.4.0",
     "whatwg-fetch": "^1.0.0"
   },
   "devDependencies": {

@@ -87,14 +87,14 @@ gulp.task('copy-app-common', () => {
       .pipe(rename('js/components/lodash.js')),
     gulp.src('./node_modules/moment/min/moment-with-locales.min.js')
       .pipe(rename('js/components/moment.js')),
-    gulp.src('./app/js/third_party/jsspeechrecogniser.js')
-      .pipe(rename('js/components/jsspeechrecogniser.js')),
-    gulp.src('./app/js/third_party/webrtc-adapter.js')
-      .pipe(rename('js/components/webrtc-adapter.js')),
+    gulp.src('./node_modules/jsspeechrecognizer/dist/JsSpeechRecognizer.js')
+      .pipe(rename('js/components/jsspeechrecognizer.js')),
 
     // Polyfills.
     gulp.src('./node_modules/whatwg-fetch/fetch.js')
-      .pipe(rename('js/polyfills/fetch.js'))
+      .pipe(rename('js/polyfills/fetch.js')),
+    gulp.src('./node_modules/webrtc-adapter/out/adapter.js')
+      .pipe(rename('js/polyfills/webrtc-adapter.js'))
   )
     .pipe(gulp.dest(DIST_APP_ROOT));
 });
