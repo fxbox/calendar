@@ -3,7 +3,7 @@
 import JsSpeechRecognizer from 'components/jsspeechrecognizer';
 
 export default class WakeWordRecogniser {
-  constructor(options={}) {
+  constructor(options = {}) {
     const minimumConfidence = options.minimumConfidence || 0.35;
     const bufferCount = options.bufferCount || 80;
     const maxVoiceActivityGap = options.maxVoiceActivityGap || 300;
