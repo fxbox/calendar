@@ -1,3 +1,5 @@
+'use strict';
+
 import JsSpeechRecognizer from 'components/jsspeechrecognizer';
 
 export default class WakeWordRecogniser {

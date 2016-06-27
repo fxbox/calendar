@@ -1,3 +1,5 @@
+'use strict';
+
 import EventDispatcher from './common/event-dispatcher';
 import WakeWordRecognizer from './wakeword/recogniser.js';
 
