@@ -25,14 +25,13 @@ const EVENT_INTERFACE = [
 ];
 
 export default class SpeechController extends EventDispatcher {
-
   constructor() {
     super(EVENT_INTERFACE);
 
     const recognizer = new WakeWordRecognizer();
 
     recognizer.setOnKeywordSpottedCallback(
-                this._handleKeywordSpotted.bind(this));
+      this._handleKeywordSpotted.bind(this));
 
     this[p.wakewordRecognizer] = recognizer;
     this[p.wakewordModelUrl] = '/data/wakeword_model.json';
@@ -48,7 +47,7 @@ export default class SpeechController extends EventDispatcher {
 
   start() {
     return this._initializeSpeechRecognition()
-                 .then(this._startListeningForWakeword.bind(this));
+             .then(this._startListeningForWakeword.bind(this));
   }
 
   _startListeningForWakeword() {
@@ -65,9 +64,9 @@ export default class SpeechController extends EventDispatcher {
     this.emit(EVENT_INTERFACE[2]);
 
     return this._stopListeningForWakeword()
-                 .then(this._startSpeechRecognition.bind(this))
-                 .then(this._handleSpeechRecognitionEnd.bind(this))
-                 .then(this._startListeningForWakeword.bind(this));
+             .then(this._startSpeechRecognition.bind(this))
+             .then(this._handleSpeechRecognitionEnd.bind(this))
+             .then(this._startListeningForWakeword.bind(this));
   }
 
   _startSpeechRecognition() {
@@ -83,7 +82,7 @@ export default class SpeechController extends EventDispatcher {
 
     // Parse intent
     return this._parseIntent(result.phrase)
-             .then(this._actOnIntent.bind(this));
+            .then(this._actOnIntent.bind(this));
   }
 
   _parseIntent() {
