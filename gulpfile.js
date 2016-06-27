@@ -69,7 +69,6 @@ gulp.task('copy-app-common', () => {
     gulp.src([
       `${APP_ROOT}**`,
       `${APP_ROOT}/data`,
-      `${APP_ROOT}/js/third_party`,
       // Don't copy documentation files.
       `!${APP_ROOT}**/*.md`,
       // Don't copy JS, it will be compiled and copied on the compile step.
