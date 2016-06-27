@@ -45,7 +45,7 @@ export default class WakeWordRecogniser {
   loadModel(modelData) {
     if (this.recogniser.isRecording()) {
       throw new Error(
-              'Load the model data before listening for wakeword');
+        'Load the model data before listening for wakeword');
     }
 
     this.recogniser.model = modelData;

@@ -52,15 +52,15 @@ export default class SpeechController extends EventDispatcher {
 
   [p.initializeSpeechRecognition]() {
     return fetch('/data/wakeword_model.json')
-             .then((response) => response.json())
-             .then((model) => {
-               this[p.wakewordRecognizer].loadModel(model);
-             });
+      .then((response) => response.json())
+      .then((model) => {
+        this[p.wakewordRecognizer].loadModel(model);
+      });
   }
 
   start() {
     return this[p.initializeSpeechRecognition]()
-             .then(this[p.startListeningForWakeword].bind(this));
+      .then(this[p.startListeningForWakeword].bind(this));
   }
 
   [p.startListeningForWakeword]() {
@@ -77,9 +77,9 @@ export default class SpeechController extends EventDispatcher {
     this.emit(EVENT_INTERFACE[2]);
 
     return this[p.stopListeningForWakeword]()
-             .then(this[p.startSpeechRecognition].bind(this))
-             .then(this[p.handleSpeechRecognitionEnd].bind(this))
-             .then(this[p.startListeningForWakeword].bind(this));
+      .then(this[p.startSpeechRecognition].bind(this))
+      .then(this[p.handleSpeechRecognitionEnd].bind(this))
+      .then(this[p.startListeningForWakeword].bind(this));
   }
 
   [p.startSpeechRecognition]() {
@@ -95,7 +95,7 @@ export default class SpeechController extends EventDispatcher {
 
     // Parse intent
     return this[p.parseIntent](result.phrase)
-            .then(this[p.actOnIntent].bind(this));
+      .then(this[p.actOnIntent].bind(this));
   }
 
   [p.parseIntent]() {
