@@ -13,6 +13,7 @@ export default class MainController extends BaseController {
   constructor() {
     super();
 
+    const speechController = new SpeechController();
     const mountNode = document.querySelector('.app-view-container');
     const options = { mountNode };
 
@@ -25,7 +26,6 @@ export default class MainController extends BaseController {
       'reminders': remindersController,
     };
 
-    const speechController = new SpeechController();
     speechController.on(
       'wakelistenstart', () => console.log('wakelistenstart'));
 
