@@ -24,7 +24,7 @@ export default class Reminders extends React.Component {
         reminders = reminders.map((reminder) => ({
           id: reminder.id,
           recipient: [reminder.recipient],
-          content: reminder.message,
+          content: reminder.action,
           datetime: reminder.due,
         }));
 
@@ -60,7 +60,7 @@ export default class Reminders extends React.Component {
 
       this.server.reminders.set({
         recipient: reminder.users.join(' '),
-        message: reminder.action,
+        action: reminder.action,
         due: Number(reminder.time),
       })
         .then((res) => {
