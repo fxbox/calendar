@@ -82,7 +82,8 @@ export default class SpeechController extends EventDispatcher {
       .then(this[p.listenForUtterance].bind(this))
       .then(this[p.handleSpeechRecognitionEnd].bind(this))
       .then(this[p.startListeningForWakeword].bind(this))
-      .catch(() => {
+      .catch((err) => {
+	console.log('startSpeechRecognition err', err);
         this.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4] });
         this[p.startListeningForWakeword]();
       });
