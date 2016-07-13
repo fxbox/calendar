@@ -66,7 +66,16 @@ export default class SpeechRecogniser {
   }
 
   abort() {
-    this[p.recognition].abort();
+    // @xxx abort() should be used, but throws an error that puts the app in an
+    // unusable state. In more details, when we used it, we kept getting a
+    // SpeechRecognitionError with the code "network" (and no extra information)
+    // Our investigation showed that network or the server side is not to blame
+    // but it's a border effect of using webkitSpeechRecognition and
+    // JsSpeechRecognizer at the same time.
+    // Using stop() sends data to STT servers but we will get errors like
+    // SpeechRecognitionError (code "no-speech") or if something was heard, the
+    // pattern won't be matched.
+    this[p.recognition].stop();
     this[p.isListening] = false;
 
     return Promise.resolve();
