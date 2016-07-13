@@ -48,8 +48,8 @@ export default class SpeechController extends EventDispatcher {
 
     this[p.idle] = true;
 
-    const wakeWordRecogniser = new WakeWordRecogniser();
     const speechRecogniser = new SpeechRecogniser();
+    const wakeWordRecogniser = new WakeWordRecogniser();
     this[p.intentParser] = new IntentParser();
 
     wakeWordRecogniser.setOnKeywordSpottedCallback(() => {
@@ -71,8 +71,7 @@ export default class SpeechController extends EventDispatcher {
   }
 
   start() {
-    return this[p.initialiseSpeechRecognition]()
-      .then(this[p.startListeningForWakeword].bind(this));
+    return this[p.initialiseSpeechRecognition]();
   }
 
   startSpeechRecognition() {
@@ -83,7 +82,7 @@ export default class SpeechController extends EventDispatcher {
       .then(this[p.handleSpeechRecognitionEnd].bind(this))
       .then(this[p.startListeningForWakeword].bind(this))
       .catch((err) => {
-	console.log('startSpeechRecognition err', err);
+        console.log('startSpeechRecognition err', err);
         this.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4] });
         this[p.startListeningForWakeword]();
       });
