@@ -71,7 +71,8 @@ export default class SpeechController extends EventDispatcher {
   }
 
   start() {
-    return this[p.initialiseSpeechRecognition]();
+    return this[p.initialiseSpeechRecognition]()
+      .then(this[p.startListeningForWakeword].bind(this));
   }
 
   startSpeechRecognition() {
