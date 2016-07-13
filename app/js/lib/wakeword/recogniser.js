@@ -23,6 +23,7 @@ export default class WakeWordRecogniser {
 
   startListening() {
     return new Promise((resolve) => {
+      this.recogniser.closeMic(); // Make sure we don't start another instance
       this.recogniser.openMic();
       if (!this.recogniser.isRecording()) {
         this.recogniser.startKeywordSpottingRecording();
@@ -37,6 +38,8 @@ export default class WakeWordRecogniser {
       if (this.recogniser.isRecording()) {
         this.recogniser.stopRecording();
       }
+
+      this.recogniser.closeMic();
 
       resolve();
     });
