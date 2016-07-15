@@ -1,5 +1,10 @@
+/* global TwitterCldr, TwitterCldrDataBundle */
+
 'use strict';
 
+import 'components/cldr/en';
+import 'components/cldr/core';
+import Confirmation from './intent-parser/confirmation';
 import chrono from 'components/chrono';
 
 /*
@@ -17,8 +22,21 @@ Remind Guillaume on Thursdays evening to go to his drawing class.
 Remind me that I should prepare my appointment tomorrow morning.
 */
 
+/*
+ * @todo:
+ *   * Replace `[user]` patterns by `[users]`.
+ *   * Use CLDR to:
+ *     * Generate placeholders.user
+ *     * Generate placeholders.listBreaker
+ *     * Generate placeholders.punctuation
+ *   * @see http://www.unicode.org/cldr/charts/29/verify/dates/en.html
+ *     to parse time (e.g. '... in the morning' => 9:00 AM)
+ *   * Make date parsing more robust by applying `chrono` to the full phrase.
+ */
+
 const p = Object.freeze({
   // Properties
+  confirmation: Symbol('confirmation'),
   regexps: Symbol('regexps'),
 
   // Methods
@@ -42,7 +60,12 @@ const PATTERNS = {
       `Remind [user] on [time] to [action].`,
       `Remind [user] by [time] to [action].`,
       `Remind [user] that it is [action] on [time].`,
+      `Remind [user] that it is [action] at [time].`,
+      `Remind [user] that it is [action] by [time].`,
       `Remind [user] that [time] is [action].`,
+      `Remind [user] that [action] at [time].`,
+      `Remind [user] that [action] on [time].`,
+      `Remind [user] that [action] by [time].`,
     ],
     placeholders: {
       user: '( \\S+ | \\S+,? and \\S+ )',
@@ -52,6 +75,8 @@ const PATTERNS = {
     // @see http://www.unicode.org/cldr/charts/29/summary/en.html#4
     punctuation: new RegExp(
       `[-‐–—,;:!?.…'‘’"“”()\\[\\]§@*/&#†‡′″]+$`, 'u'),
+    // @see http://www.unicode.org/cldr/charts/29/summary/en.html#6402
+    listBreaker: new RegExp(`,|, and\\b|\\band\\b|\\s&\\s`, 'gu'),
   },
   fr: {
     patterns: [
@@ -67,6 +92,7 @@ const PATTERNS = {
     },
     punctuation: new RegExp(
       `[-‐–—,;:!?.…’"“”«»()\\[\\]§@*/&#†‡]+$`, 'u'),
+    listBreaker: new RegExp(`,|\\bet\\b|\\s&\\s`, 'gu'),
   },
   ja: {
     patterns: [
@@ -82,14 +108,21 @@ const PATTERNS = {
     punctuation: new RegExp(
       `[-‾_＿－‐—―〜・･,，、､;；:：!！?？.．‥…。｡＇‘’"＂“”(（)）\\[［\\]］{｛}｝` +
       `〈〉《》「｢」｣『』【】〔〕‖§¶@＠*＊/／\＼&＆#＃%％‰†‡′″〃※]+$`, 'u'),
+    listBreaker: new RegExp(`、`, 'gu'),
   },
 };
 
 export default class IntentParser {
   constructor(locale = 'en') {
+    TwitterCldr.set_data(TwitterCldrDataBundle);
+
     this.locale = locale;
+    this[p.confirmation] = new Confirmation(locale);
     this[p.regexps] = {};
+
     this[p.init]();
+
+    window.intentParser = this;
 
     Object.seal(this);
   }
@@ -100,7 +133,7 @@ export default class IntentParser {
     }
 
     return new Promise((resolve, reject) => {
-      const successful = this[p.regexps][this.locale].some((pattern) => {
+      const successful = this[p.regexps][this.locale].some((pattern, id) => {
         if (!pattern.patterns.test(phrase)) {
           return false;
         }
@@ -118,7 +151,17 @@ export default class IntentParser {
           return false; // Try next patterns.
         }
 
-        resolve({ users, action, time });
+        // The original pattern matching the intent.
+        const match = PATTERNS[this.locale].patterns[id];
+
+        const confirmation = this[p.confirmation].getReminderMessage({
+          users,
+          action,
+          time,
+          match,
+        });
+
+        resolve({ users, action, time, confirmation });
         return true;
       });
 
@@ -129,7 +172,9 @@ export default class IntentParser {
   }
 
   [p.parseUsers](string = '') {
-    return [string.trim()];
+    return string
+      .split(PATTERNS[this.locale].listBreaker)
+      .map((user) => user.trim());
   }
 
   [p.parseAction](string = '') {
