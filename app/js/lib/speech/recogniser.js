@@ -19,6 +19,9 @@ export default class SpeechRecogniser {
 
     if (supportsRecognition) {
       this[p.recognition] = new Recognition();
+      // Continuous mode prevents Android from being stuck for 5 seconds between
+      // the last word said and the results to come in.
+      this[p.recognition].continuous = true;
     } else {
       this[p.recognition] = null;
     }
@@ -43,6 +46,12 @@ export default class SpeechRecogniser {
       // `removeEventListener` everytime it's simpler
       // to just redefine `onresult` to the same effect.
       this[p.recognition].onresult = (event) => {
+        // Due to continuous mode, many results may arrive. We choose to only
+        // return the first result and to forget about the following ones.
+        if (!this[p.isListening]) {
+          return;
+        }
+
         this[p.recognition].stop();
         this[p.isListening] = false;
 
