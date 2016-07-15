@@ -49,20 +49,18 @@ export default class SpeechRecogniser {
       this[p.recognition].onresult = (event) => {
         // Due to continuous mode, many results may arrive. We choose to only
         // return the first result and to forget about the following ones.
-        if (!this[p.isListening]) {
-          return;
+        if (this[p.isListening]) {
+          this[p.recognition].stop();
+          this[p.isListening] = false;
+
+          // Always take first result
+          const result = event.results[0][0];
+
+          return resolve({
+            confidence: result.confidence,
+            utterance: result.transcript,
+          });
         }
-
-        this[p.recognition].stop();
-        this[p.isListening] = false;
-
-        // Always take first result
-        const result = event.results[0][0];
-
-        return resolve({
-          confidence: result.confidence,
-          utterance: result.transcript,
-        });
       };
 
       this[p.recognition].onerror = (error) => {
