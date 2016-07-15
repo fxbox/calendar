@@ -35,11 +35,12 @@ export default class SpeechRecogniser {
         new Error('Speech recognition not supported in this browser'));
     }
 
-    return new Promise((resolve, reject) => {
-      if (this[p.isListening]) {
-        return reject(new Error('Speech recognition is already listening'));
-      }
+    if (this[p.isListening]) {
+      return Promise.reject(
+        new Error('Speech recognition is already listening'));
+    }
 
+    return new Promise((resolve, reject) => {
       this[p.isListening] = true;
 
       // Not using `addEventListener` here to avoid
