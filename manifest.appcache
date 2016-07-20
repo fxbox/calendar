@@ -1,19 +1,19 @@
 CACHE MANIFEST
-# version Fri Jul 15 2016 15:35:24 GMT+0100 (BST)
+# version Wed Jul 20 2016 11:41:51 GMT+0100 (BST)
 CACHE:
 browserconfig.xml
 favicon.ico
 index.html
 manifest.webmanifest
-data/wakeword_model.json
 css/app.css
+data/wakeword_model.json
 img/icon-ios.svg
 img/icon-windows.svg
 img/icon.svg
+media/cue.wav
 js/alameda.js
 js/app.js
 js/bootstrap.js
-media/cue.wav
 css/FiraSans/FiraSans-Bold.woff
 css/FiraSans/FiraSans-BoldItalic.woff
 css/FiraSans/FiraSans-Hair.woff
