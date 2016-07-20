@@ -22,7 +22,7 @@
   "dependencies": {
     "alameda": "^1.0.0",
     "chrono-node": "^1.2.3",
-    "jsspeechrecognizer": "fxbox/JsSpeechRecognizer",
+    "webaudio-kws-node": "fxbox/webaudio-kws-node",
     "lodash": "^4.13.1",
     "moment": "^2.13.0",
     "react": "^15.1.0",
