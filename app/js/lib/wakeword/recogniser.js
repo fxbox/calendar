@@ -32,8 +32,6 @@ export default class WakeWordRecogniser {
 
     this.ready = Promise.all([keywordReady, this.audioSource]);
 
-    window.recogniser = this;
-
     Object.seal(this);
   }
 
@@ -41,7 +39,6 @@ export default class WakeWordRecogniser {
     return this.ready.then(() => {
       return this.audioSource;
     }).then((source) => {
-      console.log('Connecting source to recogniser');
       source.connect(this.recogniser);
       this.recogniser.connect(this.audioContext.destination);
       return;
@@ -52,7 +49,6 @@ export default class WakeWordRecogniser {
     return this.ready.then(() => {
       return this.audioSource;
     }).then((source) => {
-      console.log('Disconnecting source from recogniser');
       source.disconnect();
       this.recogniser.disconnect();
       return;
