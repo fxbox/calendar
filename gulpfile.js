@@ -92,7 +92,7 @@ gulp.task('copy-app-common', () => {
       .pipe(rename('js/components/cldr/core.js')),
     gulp.src('./node_modules/twitter_cldr/min/en.min.js')
       .pipe(rename('js/components/cldr/en.js')),
-    gulp.src('./node_modules/webaudio-kws-node/dist/library.js')
+    gulp.src('./node_modules/webaudio-kws-node/dist/amd-library.js')
       .pipe(rename('js/components/webaudiokws.js')),
     gulp.src('./node_modules/webaudio-kws-node/dist/ps-worker.js')
       .pipe(rename('js/components/ps-worker.js')),
