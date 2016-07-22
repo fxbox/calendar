@@ -1,12 +1,11 @@
 CACHE MANIFEST
-# version Thu Jul 21 2016 17:41:28 GMT+0100 (BST)
+# version Fri Jul 22 2016 09:36:43 GMT+0100 (BST)
 CACHE:
 browserconfig.xml
 favicon.ico
 index.html
 manifest.webmanifest
 data/wakeword_model.json
-css/app.css
 img/icon-ios.svg
 img/icon-windows.svg
 img/icon.svg
@@ -14,19 +13,7 @@ js/alameda.js
 js/app.js
 js/bootstrap.js
 media/cue.wav
-css/icons/delete.svg
-css/icons/microphone.svg
-css/icons/next.svg
-css/FiraSans/FiraSans-Bold.woff
-css/FiraSans/FiraSans-BoldItalic.woff
-css/FiraSans/FiraSans-Hair.woff
-css/FiraSans/FiraSans-HairItalic.woff
-css/FiraSans/FiraSans-Italic.woff
-css/FiraSans/FiraSans-Light.woff
-css/FiraSans/FiraSans-LightItalic.woff
-css/FiraSans/FiraSans-Regular.woff
-css/FiraSans/FiraSans-UltraLight.woff
-css/FiraSans/FiraSans-UltraLightItalic.woff
+css/app.css
 img/icons/128.png
 img/icons/144.png
 img/icons/16.png
@@ -55,15 +42,28 @@ img/static-icons/mstile-310x150.png
 img/static-icons/mstile-310x310.png
 img/static-icons/mstile-70x70.png
 img/static-icons/safari-pinned-tab.svg
-js/polyfills/fetch.js
-js/polyfills/url-search-params.js
-js/polyfills/webrtc-adapter.js
 js/components/chrono.js
 js/components/jsspeechrecognizer.js
 js/components/lodash.js
 js/components/moment.js
 js/components/react-dom.js
 js/components/react.js
+js/polyfills/fetch.js
+js/polyfills/url-search-params.js
+js/polyfills/webrtc-adapter.js
+css/icons/delete.svg
+css/icons/microphone.svg
+css/icons/next.svg
+css/FiraSans/FiraSans-Bold.woff
+css/FiraSans/FiraSans-BoldItalic.woff
+css/FiraSans/FiraSans-Hair.woff
+css/FiraSans/FiraSans-HairItalic.woff
+css/FiraSans/FiraSans-Italic.woff
+css/FiraSans/FiraSans-Light.woff
+css/FiraSans/FiraSans-LightItalic.woff
+css/FiraSans/FiraSans-Regular.woff
+css/FiraSans/FiraSans-UltraLight.woff
+css/FiraSans/FiraSans-UltraLightItalic.woff
 install-sw.js
 cache.html
 cache.js
