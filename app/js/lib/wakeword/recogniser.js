@@ -8,12 +8,14 @@ export default class WakeWordRecogniser {
 
     this.audioSource = navigator.mediaDevices.getUserMedia({
       audio: true,
-    }).then((stream) => {
-      return this.audioContext.createMediaStreamSource(stream);
-    }).catch((error) => {
-      console.error(`Could not getUserMedia: ${error}`);
-      throw error;
-    });
+    })
+      .then((stream) => {
+        return this.audioContext.createMediaStreamSource(stream);
+      })
+      .catch((error) => {
+        console.error(`Could not getUserMedia: ${error}`);
+        throw error;
+      });
 
     this.recogniser = new PocketSphinx(this.audioContext, {
       pocketSphinxUrl: '/js/components/pocketsphinx.js',
