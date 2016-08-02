@@ -36,23 +36,26 @@ export default class WakeWordRecogniser {
   }
 
   startListening() {
-    return this.ready.then(() => {
-      return this.audioSource;
-    }).then((source) => {
-      source.connect(this.recogniser);
-      this.recogniser.connect(this.audioContext.destination);
-      return;
-    });
+    return this.ready
+      .then(() => {
+        return this.audioSource;
+      })
+      .then((source) => {
+        source.connect(this.recogniser);
+        this.recogniser.connect(this.audioContext.destination);
+        return;
+      });
   }
 
   stopListening() {
-    return this.ready.then(() => {
-      return this.audioSource;
-    }).then((source) => {
-      source.disconnect();
-      this.recogniser.disconnect();
-      return;
-    });
+    return this.ready
+      .then(() => {
+        return this.audioSource;
+      })
+      .then((source) => {
+        source.disconnect();
+        this.recogniser.disconnect();
+      });
   }
 
   setOnKeywordSpottedCallback(fn) {
