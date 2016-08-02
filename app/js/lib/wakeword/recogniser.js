@@ -56,8 +56,6 @@ export default class WakeWordRecogniser {
   }
 
   setOnKeywordSpottedCallback(fn) {
-    this.recogniser.on('keywordspotted', () => {
-      fn();
-    });
+    this.recogniser.on('keywordspotted', fn);
   }
 }
