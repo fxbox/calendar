@@ -33,7 +33,6 @@ export default class WakeWordRecogniser {
       .then(() => this.recogniser.addKeyword('MAKE A NOTE'));
 
     this.ready = Promise.all([keywordReady, this.audioSource]);
-
     Object.seal(this);
   }
 
