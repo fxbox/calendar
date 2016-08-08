@@ -1,8 +1,8 @@
 CACHE MANIFEST
-# version Mon Aug 08 2016 11:17:11 GMT+0100 (BST)
+# version Mon Aug 08 2016 13:31:25 GMT+0100 (BST)
 CACHE:
 browserconfig.xml
-favicon.ico
+js/components/cldr/en.js
 index.html
 manifest.webmanifest
 css/app.css
@@ -13,8 +13,6 @@ img/icon-ios.svg
 img/icon-windows.svg
 img/icon.svg
 media/cue.wav
-serviceworker/push.js
-serviceworker/update.js
 css/FiraSans/FiraSans-Bold.woff
 css/FiraSans/FiraSans-BoldItalic.woff
 css/FiraSans/FiraSans-Hair.woff
@@ -31,9 +29,12 @@ css/icons/next.svg
 js/components/chrono.js
 js/components/lodash.js
 js/components/moment.js
+js/components/pocketsphinx.js
+js/components/ps-worker.js
 js/components/react-dom.js
 js/components/react.js
-js/polyfills/fetch.js
+js/components/webaudiokws.js
+favicon.ico
 js/polyfills/url-search-params.js
 js/polyfills/webrtc-adapter.js
 img/icons/128.png
@@ -65,7 +66,7 @@ img/static-icons/mstile-310x310.png
 img/static-icons/mstile-70x70.png
 img/static-icons/safari-pinned-tab.svg
 js/components/cldr/core.js
-js/components/cldr/en.js
+js/polyfills/fetch.js
 install-sw.js
 cache.html
 cache.js
