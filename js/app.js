@@ -1,10 +1,10 @@
-define(['components/react', 'components/react-dom', 'components/lodash', 'components/moment', 'components/cldr/en', 'components/cldr/core', 'components/jsspeechrecognizer', 'components/chrono'], function (React, ReactDOM, _, moment, components_cldr_en, components_cldr_core, JsSpeechRecognizer, chrono) { 'use strict';
+define(['components/react', 'components/react-dom', 'components/moment', 'components/lodash', 'components/cldr/en', 'components/cldr/core', 'components/webaudiokws', 'components/chrono'], function (React, ReactDOM, moment, _, components_cldr_en, components_cldr_core, PocketSphinx, chrono) { 'use strict';
 
   React = 'default' in React ? React['default'] : React;
   ReactDOM = 'default' in ReactDOM ? ReactDOM['default'] : ReactDOM;
-  _ = 'default' in _ ? _['default'] : _;
   moment = 'default' in moment ? moment['default'] : moment;
-  JsSpeechRecognizer = 'default' in JsSpeechRecognizer ? JsSpeechRecognizer['default'] : JsSpeechRecognizer;
+  _ = 'default' in _ ? _['default'] : _;
+  PocketSphinx = 'default' in PocketSphinx ? PocketSphinx['default'] : PocketSphinx;
   chrono = 'default' in chrono ? chrono['default'] : chrono;
 
   var jsx = function () {
@@ -217,70 +217,6 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     return UsersController;
   }(BaseController);
 
-  var COLOURS = ['red', 'orange', 'green', 'blue', 'violet'];
-
-  var ReminderItem = function (_React$Component) {
-    inherits(ReminderItem, _React$Component);
-
-    function ReminderItem(props) {
-      classCallCheck(this, ReminderItem);
-
-      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
-
-      TwitterCldr.set_data(TwitterCldrDataBundle);
-
-      _this.listFormatter = new TwitterCldr.ListFormatter();
-      _this.reminder = props.reminder;
-      _this.onDelete = props.onDelete;
-      return _this;
-    }
-
-    ReminderItem.prototype.getColour = function getColour() {
-      var recipients = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
-
-      var name = recipients.join(' ');
-      var hash = function (string) {
-        var hash = 0,
-            i = void 0,
-            chr = void 0,
-            len = void 0;
-        if (string.length === 0) {
-          return 0;
-        }
-        for (i = 0, len = string.length; i < len; i++) {
-          chr = string.charCodeAt(i);
-          hash = (hash << 5) - hash + chr;
-          hash |= 0; // Convert to 32bit integer
-        }
-        return hash;
-      };
-
-      return COLOURS[hash(name) % COLOURS.length];
-    };
-
-    ReminderItem.prototype.render = function render() {
-      var reminder = this.reminder;
-      var contentClassName = ['reminders__item-content', this.getColour(reminder.recipients)].join(' ');
-
-      return jsx('li', {
-        className: 'reminders__item'
-      }, void 0, jsx('div', {
-        className: 'reminders__item-time'
-      }, void 0, jsx('div', {}, void 0, moment(reminder.datetime).format('LT'))), jsx('div', {
-        className: contentClassName
-      }, void 0, jsx('h3', {
-        className: 'reminders__item-recipient'
-      }, void 0, this.listFormatter.format(reminder.recipients)), jsx('p', {
-        className: 'reminders__item-text'
-      }, void 0, reminder.content, jsx('button', {
-        className: 'reminders__delete',
-        onClick: this.onDelete
-      }, void 0, 'Delete'))));
-    };
-
-    return ReminderItem;
-  }(React.Component);
-
   var TYPES = ['success', 'info', 'warning', 'danger'];
 
   var Toaster = function (_React$Component) {
@@ -354,6 +290,162 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     return Toaster;
   }(React.Component);
 
+  var COLOURS = ['red', 'orange', 'green', 'blue', 'violet'];
+
+  var ReminderItem = function (_React$Component) {
+    inherits(ReminderItem, _React$Component);
+
+    function ReminderItem(props) {
+      classCallCheck(this, ReminderItem);
+
+      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
+
+      TwitterCldr.set_data(TwitterCldrDataBundle);
+
+      _this.listFormatter = new TwitterCldr.ListFormatter();
+      _this.reminder = props.reminder;
+      _this.onDelete = props.onDelete;
+      return _this;
+    }
+
+    ReminderItem.prototype.getColour = function getColour() {
+      var recipients = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
+
+      var name = recipients.join(' ');
+      var hash = function (string) {
+        var hash = 0,
+            i = void 0,
+            chr = void 0,
+            len = void 0;
+        if (string.length === 0) {
+          return 0;
+        }
+        for (i = 0, len = string.length; i < len; i++) {
+          chr = string.charCodeAt(i);
+          hash = (hash << 5) - hash + chr;
+          hash |= 0; // Convert to 32bit integer
+        }
+        return hash;
+      };
+
+      return COLOURS[hash(name) % COLOURS.length];
+    };
+
+    ReminderItem.prototype.render = function render() {
+      var reminder = this.reminder;
+      var contentClassName = ['reminders__item-content', this.getColour(reminder.recipients)].join(' ');
+
+      return jsx('li', {
+        className: 'reminders__item'
+      }, void 0, jsx('div', {
+        className: 'reminders__item-time'
+      }, void 0, jsx('div', {}, void 0, moment(reminder.due).format('LT'))), jsx('div', {
+        className: contentClassName
+      }, void 0, jsx('h3', {
+        className: 'reminders__item-recipient'
+      }, void 0, this.listFormatter.format(reminder.recipients)), jsx('p', {
+        className: 'reminders__item-text'
+      }, void 0, reminder.action, jsx('button', {
+        className: 'reminders__delete',
+        onClick: this.onDelete
+      }, void 0, 'Delete'))));
+    };
+
+    return ReminderItem;
+  }(React.Component);
+
+  var RemindersList = function (_React$Component) {
+    inherits(RemindersList, _React$Component);
+
+    function RemindersList(props) {
+      classCallCheck(this, RemindersList);
+
+      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
+
+      _this.state = {
+        reminders: props.reminders
+      };
+
+      _this.server = props.server;
+      return _this;
+    }
+
+    RemindersList.prototype.componentWillReceiveProps = function componentWillReceiveProps(props) {
+      this.setState({ reminders: props.reminders });
+    };
+
+    RemindersList.prototype.onDelete = function onDelete(id) {
+      var _this2 = this;
+
+      // @todo Nice to have: optimistic update.
+      // https://github.com/fxbox/calendar/issues/32
+      this.server.reminders.delete(id).then(function () {
+        var reminders = _this2.state.reminders.filter(function (reminder) {
+          return reminder.id !== id;
+        });
+        _this2.setState({ reminders });
+      }).catch(function () {
+        console.error(`The reminder ${ id } could not be deleted.`);
+      });
+    };
+
+    RemindersList.prototype.render = function render() {
+      var _this3 = this;
+
+      var reminders = this.state.reminders;
+
+      // Sort all the reminders chronologically.
+      reminders = reminders.sort(function (a, b) {
+        return a.due - b.due;
+      });
+
+      // Group the reminders by month.
+      reminders = _.groupBy(reminders, function (reminder) {
+        return moment(reminder.due).format('YYYY/MM');
+      });
+
+      // For each month, group the reminders by day.
+      Object.keys(reminders).forEach(function (month) {
+        reminders[month] = _.groupBy(reminders[month], function (reminder) {
+          return moment(reminder.due).format('YYYY/MM/DD');
+        });
+      });
+
+      var remindersNode = Object.keys(reminders).map(function (key) {
+        var month = moment(key, 'YYYY/MM').format('MMMM');
+        var reminderMonth = reminders[key];
+
+        return jsx('div', {}, key, jsx('h2', {
+          className: 'reminders__month'
+        }, void 0, month), Object.keys(reminderMonth).map(function (key) {
+          var date = moment(key, 'YYYY/MM/DD');
+          var remindersDay = reminderMonth[key];
+
+          return jsx('div', {
+            className: 'reminders__day'
+          }, key, jsx('div', {
+            className: 'reminders__day-date'
+          }, void 0, jsx('div', {
+            className: 'reminders__day-mday'
+          }, void 0, date.format('DD')), jsx('div', {
+            className: 'reminders__day-wday'
+          }, void 0, date.format('ddd'))), jsx('ol', {
+            className: 'reminders__list'
+          }, void 0, remindersDay.map(function (reminder) {
+            return jsx(ReminderItem, {
+              reminder: reminder,
+              onDelete: _this3.onDelete.bind(_this3, reminder.id)
+            }, reminder.id);
+          })));
+        }));
+      });
+
+      return jsx('div', {}, void 0, remindersNode);
+    };
+
+    return RemindersList;
+  }(React.Component);
+
   var Reminders = function (_React$Component) {
     inherits(Reminders, _React$Component);
 
@@ -383,15 +475,6 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       var _this2 = this;
 
       this.server.reminders.getAll().then(function (reminders) {
-        reminders = reminders.map(function (reminder) {
-          return {
-            id: reminder.id,
-            recipients: reminder.recipients,
-            content: reminder.action,
-            datetime: reminder.due
-          };
-        });
-
         _this2.setState({ reminders });
       });
 
@@ -439,28 +522,27 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     Reminders.prototype.onReminder = function onReminder(evt) {
       var _this3 = this;
 
-      var reminder = evt.result;
+      var _evt$result = evt.result;
+      var recipients = _evt$result.recipients;
+      var action = _evt$result.action;
+      var due = _evt$result.due;
+      var confirmation = _evt$result.confirmation;
 
       // @todo Nice to have: optimistic update.
       // https://github.com/fxbox/calendar/issues/32
-      this.server.reminders.set({
-        recipients: reminder.users,
-        action: reminder.action,
-        due: Number(reminder.time)
-      }).then(function (savedReminder) {
-        var reminders = _this3.state.reminders;
 
-        reminders.push({
-          id: savedReminder.id,
-          recipients: savedReminder.recipients,
-          content: savedReminder.action,
-          datetime: savedReminder.due
-        });
+      this.server.reminders.set({
+        recipients,
+        action,
+        due
+      }).then(function (reminder) {
+        var reminders = _this3.state.reminders;
+        reminders.push(reminder);
 
         _this3.setState({ reminders });
 
-        _this3.toaster.success(reminder.confirmation);
-        _this3.speechController.speak(reminder.confirmation);
+        _this3.toaster.success(confirmation);
+        _this3.speechController.speak(confirmation);
       }).catch(function (res) {
         console.error('Saving the reminder failed.', res);
         var message = 'This reminder could not be saved. ' + 'Please try again later.';
@@ -487,81 +569,21 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       this.setState({ reminders });
     };
 
-    Reminders.prototype.onDelete = function onDelete(id) {
-      var _this4 = this;
-
-      // @todo Nice to have: optimistic update.
-      // https://github.com/fxbox/calendar/issues/32
-      this.server.reminders.delete(id).then(function () {
-        var reminders = _this4.state.reminders.filter(function (reminder) {
-          return reminder.id !== id;
-        });
-        _this4.setState({ reminders });
-      }).catch(function () {
-        console.error(`The reminder ${ id } could not be deleted.`);
-      });
-    };
-
     // @todo Add a different view when there's no reminders:
     // https://github.com/fxbox/calendar/issues/16
 
 
     Reminders.prototype.render = function render() {
-      var _this5 = this;
-
-      var reminders = this.state.reminders;
-
-      // Sort all the reminders chronologically.
-      reminders = reminders.sort(function (a, b) {
-        return a.datetime - b.datetime;
-      });
-
-      // Group the reminders by month.
-      reminders = _.groupBy(reminders, function (reminder) {
-        return moment(reminder.datetime).format('YYYY/MM');
-      });
-
-      // For each month, group the reminders by day.
-      Object.keys(reminders).forEach(function (month) {
-        reminders[month] = _.groupBy(reminders[month], function (reminder) {
-          return moment(reminder.datetime).format('YYYY/MM/DD');
-        });
-      });
-
-      var reminderNodes = Object.keys(reminders).map(function (key) {
-        var month = moment(key, 'YYYY/MM').format('MMMM');
-        var reminderMonth = reminders[key];
-
-        return jsx('div', {}, key, jsx('h2', {
-          className: 'reminders__month'
-        }, void 0, month), Object.keys(reminderMonth).map(function (key) {
-          var date = moment(key, 'YYYY/MM/DD');
-          var remindersDay = reminderMonth[key];
-
-          return jsx('div', {
-            className: 'reminders__day'
-          }, key, jsx('div', {
-            className: 'reminders__day-date'
-          }, void 0, jsx('div', {
-            className: 'reminders__day-mday'
-          }, void 0, date.format('DD')), jsx('div', {
-            className: 'reminders__day-wday'
-          }, void 0, date.format('ddd'))), jsx('ol', {
-            className: 'reminders__list'
-          }, void 0, remindersDay.map(function (reminder) {
-            return jsx(ReminderItem, {
-              reminder: reminder,
-              onDelete: _this5.onDelete.bind(_this5, reminder.id)
-            }, reminder.id);
-          })));
-        }));
-      });
+      var _this4 = this;
 
       return jsx('section', {
         className: 'reminders'
       }, void 0, React.createElement(Toaster, { ref: function (t) {
-          return _this5.toaster = t;
-        } }), reminderNodes);
+          return _this4.toaster = t;
+        } }), jsx(RemindersList, {
+        reminders: this.state.reminders,
+        server: this.server
+      }));
     };
 
     return Reminders;
@@ -901,64 +923,66 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
 
   var WakeWordRecogniser = function () {
     function WakeWordRecogniser() {
-      var options = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+      var _this = this;
+
       classCallCheck(this, WakeWordRecogniser);
 
-      var minimumConfidence = options.minimumConfidence || 0.35;
-      var bufferCount = options.bufferCount || 80;
-      var maxVoiceActivityGap = options.maxVoiceActivityGap || 300;
-      var numGroups = options.numGroups || 60;
-      var groupSize = options.groupSize || 5;
+      this.audioContext = new AudioContext();
 
-      this.recogniser = new JsSpeechRecognizer();
+      this.audioSource = navigator.mediaDevices.getUserMedia({
+        audio: true
+      }).then(function (stream) {
+        return _this.audioContext.createMediaStreamSource(stream);
+      }).catch(function (error) {
+        console.error(`Could not getUserMedia: ${ error }`);
+        throw error;
+      });
 
-      this.recogniser.keywordSpottingMinimumConfidence = minimumConfidence;
-      this.recogniser.keywordSpottingBufferCount = bufferCount;
-      this.recogniser.keywordSpottingMaxVoiceActivityGap = maxVoiceActivityGap;
-      this.recogniser.numGroups = numGroups;
-      this.recogniser.groupSize = groupSize;
+      this.recogniser = new PocketSphinx(this.audioContext, {
+        pocketSphinxUrl: 'pocketsphinx.js',
+        workerUrl: 'js/components/ps-worker.js',
+        args: [['-kws_threshold', '2']]
+      });
 
+      var dictionary = {
+        'MAKE': ['M EY K'],
+        'A': ['AH'],
+        'NOTE': ['N OW T']
+      };
+
+      var keywordReady = this.recogniser.addDictionary(dictionary).then(function () {
+        return _this.recogniser.addKeyword('MAKE A NOTE');
+      });
+
+      this.ready = Promise.all([keywordReady, this.audioSource]);
       Object.seal(this);
     }
 
     WakeWordRecogniser.prototype.startListening = function startListening() {
-      var _this = this;
+      var _this2 = this;
 
-      return new Promise(function (resolve) {
-        _this.recogniser.closeMic(); // Make sure we don't start another instance
-        _this.recogniser.openMic();
-        if (!_this.recogniser.isRecording()) {
-          _this.recogniser.startKeywordSpottingRecording();
-        }
-
-        resolve();
+      return this.ready.then(function () {
+        return _this2.audioSource;
+      }).then(function (source) {
+        source.connect(_this2.recogniser);
+        _this2.recogniser.connect(_this2.audioContext.destination);
+        return;
       });
     };
 
     WakeWordRecogniser.prototype.stopListening = function stopListening() {
-      var _this2 = this;
+      var _this3 = this;
 
-      return new Promise(function (resolve) {
-        if (_this2.recogniser.isRecording()) {
-          _this2.recogniser.stopRecording();
-        }
-
-        _this2.recogniser.closeMic();
-
-        resolve();
+      return this.ready.then(function () {
+        return _this3.audioSource;
+      }).then(function (source) {
+        source.disconnect();
+        _this3.recogniser.disconnect();
       });
     };
 
-    WakeWordRecogniser.prototype.loadModel = function loadModel(modelData) {
-      if (this.recogniser.isRecording()) {
-        throw new Error('Load the model data before listening for wakeword');
-      }
-
-      this.recogniser.model = modelData;
-    };
-
     WakeWordRecogniser.prototype.setOnKeywordSpottedCallback = function setOnKeywordSpottedCallback(fn) {
-      this.recogniser.keywordSpottedCallback = fn;
+      this.recogniser.on('keywordspotted', fn);
     };
 
     return WakeWordRecogniser;
@@ -1183,7 +1207,7 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     en: {
       template: `OK, I'll remind [users] [action] [time].`,
       formatUser: function (user) {
-        return user.replace(/\bme\b/gi, 'you').replace(/\bI\b/gi, 'you').replace(/\bmy\b/gi, 'your').replace(/\bmine\b/gi, 'yours');
+        return user.replace(/\bme\b/gi, 'you').replace(/\bI'm\b/gi, 'you\'re').replace(/\bI've\b/gi, 'you\'ve').replace(/\bI'll\b/gi, 'you\'ll').replace(/\bI\b/gi, 'you').replace(/\bmy\b/gi, 'your').replace(/\bmine\b/gi, 'yours');
       }
     },
     fr: {
@@ -1252,43 +1276,48 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     };
 
     Confirmation.prototype[p$6.formatUser] = function (reminder) {
+      var recipients = reminder.recipients;
+
       var formatUser = this[p$6.getLocalised]('formatUser');
-      var users = reminder.users.map(formatUser);
-      return this[p$6.listFormatter].format(users);
+      var formattedRecipients = recipients.map(formatUser);
+      return this[p$6.listFormatter].format(formattedRecipients);
     };
 
     Confirmation.prototype[p$6.formatAction] = function (reminder) {
+      var action = reminder.action;
+
       var formatUser = this[p$6.getLocalised]('formatUser');
-      var action = formatUser(reminder.action);
+      var formattedAction = formatUser(action);
       var PATTERN1 = new RegExp(`\\bthat \\[action\\]`, 'iu');
       var PATTERN2 = new RegExp(`\\bit is \\[action\\]`, 'iu');
+      var PATTERN3 = new RegExp(`\\babout \\[action\\]`, 'iu');
 
       if (PATTERN1.test(reminder.match)) {
-        return `that ${ action }`;
+        return `that ${ formattedAction }`;
       } else if (PATTERN2.test(reminder.match)) {
-        return `that it is ${ action }`;
+        return `that it is ${ formattedAction }`;
+      } else if (PATTERN3.test(reminder.match)) {
+        return `about ${ formattedAction }`;
       }
 
-      return `to ${ action }`;
+      return `to ${ formattedAction }`;
     };
 
     Confirmation.prototype[p$6.formatTime] = function (reminder) {
-      var date = reminder.time;
-      var time = '';
+      var due = reminder.due;
 
-      if (this[p$6.isToday](date)) {
-        var hour = this[p$6.formatHoursAndMinutes](date);
-        time = `at ${ hour } today`;
-      } else if (this[p$6.isTomorrow](date)) {
-        var _hour = this[p$6.formatHoursAndMinutes](date);
-        time = `at ${ _hour } tomorrow`;
-      } else if (this[p$6.isThisMonth](date)) {
-        time = moment(date).format('[on the] Do');
-      } else {
-        time = moment(date).format('[on] MMMM [the] Do');
+
+      if (this[p$6.isToday](due)) {
+        var hour = this[p$6.formatHoursAndMinutes](due);
+        return `at ${ hour } today`;
+      } else if (this[p$6.isTomorrow](due)) {
+        var _hour = this[p$6.formatHoursAndMinutes](due);
+        return `at ${ _hour } tomorrow`;
+      } else if (this[p$6.isThisMonth](due)) {
+        return moment(due).format('[on the] Do');
       }
 
-      return time;
+      return moment(due).format('[on] MMMM [the] Do');
     };
 
     Confirmation.prototype[p$6.isToday] = function (date) {
@@ -1474,7 +1503,7 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
 
   var PATTERNS = {
     en: {
-      patterns: [`Remind [users] to [action] at [time].`, `Remind [users] to [action] on [time].`, `Remind [users] to [action] by [time].`, `Remind [users] at [time] to [action].`, `Remind [users] on [time] to [action].`, `Remind [users] by [time] to [action].`, `Remind [users] to [action].`, `Remind [users] that it is [action] on [time].`, `Remind [users] that it is [action] at [time].`, `Remind [users] that it is [action] by [time].`, `Remind [users] that it is [action].`, `Remind [users] that [action] at [time].`, `Remind [users] that [action] on [time].`, `Remind [users] that [action] by [time].`, `Remind [users] that [action].`, `Remind [users] that [time] is [action].`],
+      patterns: [`Remind [users] to [action] at [time].`, `Remind [users] to [action] on [time].`, `Remind [users] to [action] by [time].`, `Remind [users] at [time] to [action].`, `Remind [users] on [time] to [action].`, `Remind [users] by [time] to [action].`, `Remind [users] to [action].`, `Remind [users] that it is [action] on [time].`, `Remind [users] that it is [action] at [time].`, `Remind [users] that it is [action] by [time].`, `Remind [users] that it is [action].`, `Remind [users] that [action] at [time].`, `Remind [users] that [action] on [time].`, `Remind [users] that [action] by [time].`, `Remind [users] that [action].`, `Remind [users] that [time] is [action].`, `Remind [users] about [action] on [time].`, `Remind [users] about [action] at [time].`, `Remind [users] about [action] by [time].`, `Remind [users] about [action].`],
       placeholders: {
         users: '( \\S+ | \\S+,? and \\S+ )',
         action: '(.+)',
@@ -1537,11 +1566,11 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
 
         var _p$parseDatetime = _this[p$5.parseDatetime](phrase);
 
-        var time = _p$parseDatetime.time;
+        var due = _p$parseDatetime.due;
         var processedPhrase = _p$parseDatetime.processedPhrase;
 
 
-        if (!time) {
+        if (!due) {
           return reject('Time could not be parsed.');
         }
 
@@ -1553,20 +1582,20 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
           var segments = pattern.regexp.exec(processedPhrase);
           segments.shift();
 
-          var users = _this[p$5.parseUsers](segments[pattern.placeholders.users], phrase);
+          var recipients = _this[p$5.parseUsers](segments[pattern.placeholders.users], phrase);
           var action = _this[p$5.parseAction](segments[pattern.placeholders.action], phrase);
 
           // The original pattern matching the intent.
           var match = pattern.match;
 
           var confirmation = _this[p$5.confirmation].getReminderMessage({
-            users,
+            recipients,
             action,
-            time,
+            due,
             match
           });
 
-          resolve({ users, action, time, confirmation });
+          resolve({ recipients, action, due, confirmation });
           return true;
         });
 
@@ -1606,11 +1635,11 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       }
 
       var date = dates[0];
-      var time = date.start.date();
+      var due = Number(date.start.date());
 
       var processedPhrase = phrase.substr(0, date.index) + phrase.substr(date.index + date.text.length);
 
-      return { time, processedPhrase };
+      return { due, processedPhrase };
     };
 
     IntentParser.prototype[p$5.normalise] = function () {
@@ -1730,13 +1759,11 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
   var p$1 = Object.freeze({
     // Properties
     wakewordRecogniser: Symbol('wakewordRecogniser'),
-    wakewordModelUrl: Symbol('wakewordModelUrl'),
     speechRecogniser: Symbol('speechRecogniser'),
     speechSynthesis: Symbol('speechSynthesis'),
     idle: Symbol('idle'),
 
     // Methods
-    initialiseSpeechRecognition: Symbol('initialiseSpeechRecognition'),
     startListeningForWakeword: Symbol('startListeningForWakeword'),
     stopListeningForWakeword: Symbol('stopListeningForWakeword'),
     listenForUtterance: Symbol('listenForUtterance'),
@@ -1776,7 +1803,6 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, EVENT_INTERFACE));
 
       _this[p$1.idle] = true;
-      _this[p$1.wakewordModelUrl] = 'data/wakeword_model.json';
 
       _this[p$1.speechRecogniser] = new SpeechRecogniser();
       _this[p$1.speechSynthesis] = new SpeechSynthesis();
@@ -1794,7 +1820,7 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     }
 
     SpeechController.prototype.start = function start() {
-      return this[p$1.initialiseSpeechRecognition]().then(this[p$1.startListeningForWakeword].bind(this));
+      return this[p$1.startListeningForWakeword]();
     };
 
     SpeechController.prototype.startSpeechRecognition = function startSpeechRecognition() {
@@ -1826,16 +1852,6 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       this[p$1.speechSynthesis].speak(text);
     };
 
-    SpeechController.prototype[p$1.initialiseSpeechRecognition] = function () {
-      var _this3 = this;
-
-      return fetch(this[p$1.wakewordModelUrl]).then(function (response) {
-        return response.json();
-      }).then(function (model) {
-        _this3[p$1.wakewordRecogniser].loadModel(model);
-      });
-    };
-
     SpeechController.prototype[p$1.startListeningForWakeword] = function () {
       this.emit(EVENT_INTERFACE[0], { type: EVENT_INTERFACE[0] });
       this[p$1.idle] = true;
@@ -1854,18 +1870,18 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     };
 
     SpeechController.prototype[p$1.handleSpeechRecognitionEnd] = function (result) {
-      var _this4 = this;
+      var _this3 = this;
 
       this.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4], result });
 
       // Parse intent
       this[p$1.intentParser].parse(result.utterance).then(function (reminder) {
-        _this4.emit(EVENT_INTERFACE[5], {
+        _this3.emit(EVENT_INTERFACE[5], {
           type: EVENT_INTERFACE[5],
           result: reminder
         });
       }).catch(function (err) {
-        _this4.emit(EVENT_INTERFACE[6], {
+        _this3.emit(EVENT_INTERFACE[6], {
           type: EVENT_INTERFACE[6],
           result: result.utterance
         });
@@ -1917,7 +1933,8 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
   // Definition of all available settings and their default values (if needed).
   var settings = Object.freeze({
     // String settings.
-    SESSION: Object.freeze({ key: 'session' })
+    SESSION: Object.freeze({ key: 'session' }),
+    VOICED: Object.freeze({ key: 'voiced', type: 'boolean' })
   });
 
   var Settings = function (_EventDispatcher) {
@@ -2086,6 +2103,14 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       },
       set: function (value) {
         this[p$8.updateSetting](settings.SESSION, value);
+      }
+    }, {
+      key: 'voiced',
+      get: function () {
+        return this[p$8.values].get(settings.VOICED);
+      },
+      set: function (value) {
+        this[p$8.updateSetting](settings.VOICED, value);
       }
 
       // Getters only.
@@ -2638,28 +2663,6 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     }
 
     /**
-     * Clear all data/settings stored on the browser. Use with caution.
-     *
-     * @param {boolean} ignoreServiceWorker
-     * @return {Promise}
-     */
-
-
-    Server.prototype.clear = function clear() {
-      var ignoreServiceWorker = arguments.length <= 0 || arguments[0] === undefined ? true : arguments[0];
-
-      var promises = [this[p$7.settings].clear()];
-
-      if (!navigator.serviceWorker && !ignoreServiceWorker) {
-        promises.push(navigator.serviceWorker.ready.then(function (registration) {
-          return registration.unregister();
-        }));
-      }
-
-      return Promise.all(promises);
-    };
-
-    /**
      * Authenticate a user.
      *
      * @param {string} user
@@ -2703,6 +2706,16 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       return this[p$7.webPush].subscribeToNotifications();
     };
 
+    Server.prototype.clearServiceWorker = function clearServiceWorker() {
+      if (navigator.serviceWorker) {
+        return navigator.serviceWorker.ready.then(function (registration) {
+          return registration.unregister();
+        });
+      }
+
+      return Promise.resolve();
+    };
+
     createClass(Server, [{
       key: 'online',
       get: function () {
@@ -2722,6 +2735,8 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
     speechController: Symbol('speechController'),
     server: Symbol('server'),
     subscribeToNotifications: Symbol('subscribeToNotifications'),
+    settings: Symbol('settings'),
+    initVoiced: Symbol('initVoiced'),
 
     onHashChanged: Symbol('onHashChanged')
   });
@@ -2736,7 +2751,8 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
 
       var mountNode = document.querySelector('.app-view-container');
       var speechController = new SpeechController();
-      var server = new Server();
+      var settings = new Settings();
+      var server = new Server({ settings });
       var options = { mountNode, speechController, server };
 
       var usersController = new UsersController(options);
@@ -2750,6 +2766,8 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
 
       _this[p.speechController] = speechController;
       _this[p.server] = server;
+      _this[p.settings] = settings;
+      _this[p.initVoiced]();
 
       window.addEventListener('hashchange', _this[p.onHashChanged].bind(_this));
       return _this;
@@ -2772,8 +2790,9 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
         return _this2[p.subscribeToNotifications]();
       });
       this[p.server].on('push-message', function (message) {
-        // if we're in "speaking reminders" mode (which is "always", currently)
-        _this2[p.speechController].speak(`${ message.title }: ${ message.body }`);
+        if (_this2[p.settings].voiced) {
+          _this2[p.speechController].speak(`${ message.title }: ${ message.body }`);
+        }
       });
 
       location.hash = '';
@@ -2786,6 +2805,26 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
           location.hash = 'users/login';
         }
       });
+    };
+
+    /**
+     * Clear all data/settings stored on the browser. Use with caution.
+     *
+     * @param {boolean} ignoreServiceWorker
+     * @return {Promise}
+     */
+
+
+    MainController.prototype.clear = function clear() {
+      var ignoreServiceWorker = arguments.length <= 0 || arguments[0] === undefined ? true : arguments[0];
+
+      var promises = [this[p.settings].clear()];
+
+      if (!ignoreServiceWorker) {
+        promises.push(this[p.server].clearServiceWorker());
+      }
+
+      return Promise.all(promises);
     };
 
     /**
@@ -2807,6 +2846,8 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
           break;
         }
       }
+
+      this[p.initVoiced]();
     };
 
     MainController.prototype[p.subscribeToNotifications] = function () {
@@ -2815,10 +2856,33 @@ define(['components/react', 'components/react-dom', 'components/lodash', 'compon
       });
     };
 
+    /**
+     * Will init the `voiced` property, which controls whether a notification is
+     * spoken.
+     *
+     * This works by using a specific hash while loading or running the
+     * application.
+     * Recognized syntaxes are: voiced=1/true/0/false
+     */
+
+
+    MainController.prototype[p.initVoiced] = function () {
+      var forcedMatch = location.hash.match(/\bvoiced=(.+?)(&|$)/);
+
+      if (forcedMatch) {
+        var matchedValue = forcedMatch[1];
+        var forceVoiced = matchedValue === '1' || matchedValue === 'true';
+
+        console.log('Forcing the `voiced` property to ', forceVoiced);
+        this[p.settings].voiced = forceVoiced;
+      }
+    };
+
     return MainController;
   }(BaseController);
 
   var mainController = new MainController();
+  window.app = mainController;
   mainController.main();
 
 });
