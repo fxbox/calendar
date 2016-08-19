@@ -305,6 +305,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       _this.listFormatter = new TwitterCldr.ListFormatter();
       _this.reminder = props.reminder;
       _this.onDelete = props.onDelete;
+      _this.onEdit = props.onEdit;
       return _this;
     }
 
@@ -346,12 +347,160 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       }, void 0, this.listFormatter.format(reminder.recipients)), jsx('p', {
         className: 'reminders__item-text'
       }, void 0, reminder.action, jsx('button', {
-        className: 'reminders__delete',
+        className: 'reminders__button reminders__edit',
+        onClick: this.onEdit
+      }, void 0, 'Edit'), jsx('button', {
+        className: 'reminders__button reminders__delete',
         onClick: this.onDelete
       }, void 0, 'Delete'))));
     };
 
     return ReminderItem;
+  }(React.Component);
+
+  var EditDialog = function (_React$Component) {
+    inherits(EditDialog, _React$Component);
+
+    function EditDialog(props) {
+      classCallCheck(this, EditDialog);
+
+      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
+
+      _this.state = {
+        display: false,
+        id: null,
+        reminder: null,
+        action: null,
+        due: null
+      };
+
+      _this.server = props.server;
+      _this.refreshReminders = props.refreshReminders;
+
+      _this.dueDateInput = null;
+      _this.dueTimeInput = null;
+
+      _this.onChangeAction = _this.onChangeAction.bind(_this);
+      _this.onChangeDue = _this.onChangeDue.bind(_this);
+      _this.onSave = _this.onSave.bind(_this);
+      _this.onClose = _this.onClose.bind(_this);
+      return _this;
+    }
+
+    EditDialog.prototype.onChangeAction = function onChangeAction(evt) {
+      var action = evt.target.value.trim();
+
+      if (action) {
+        this.setState({ action });
+      }
+    };
+
+    EditDialog.prototype.onChangeDue = function onChangeDue() {
+      var date = this.dueDateInput.value.split('-');
+      var time = this.dueTimeInput.value.split(':');
+
+      var dueMoment = moment().year(date[0]).month(date[1] - 1).date(date[2]).hour(time[0]).minute(time[1]).second(0);
+      var due = Number(dueMoment.toDate());
+      this.setState({ due });
+    };
+
+    EditDialog.prototype.onSave = function onSave() {
+      var _this2 = this;
+
+      var reminder = {
+        id: this.state.id,
+        recipients: this.state.recipients,
+        action: this.state.action,
+        due: this.state.due
+      };
+      this.server.reminders.update(reminder).then(function () {
+        _this2.refreshReminders();
+        _this2.hide();
+      }).catch(function (err) {
+        console.error(err);
+        _this2.hide();
+        alert('The reminder could not be updated. Try again later.');
+      });
+    };
+
+    EditDialog.prototype.onClose = function onClose() {
+      this.hide();
+    };
+
+    EditDialog.prototype.show = function show() {
+      var reminder = arguments.length <= 0 || arguments[0] === undefined ? null : arguments[0];
+
+      this.setState({
+        display: true,
+        id: reminder.id,
+        recipients: reminder.recipients,
+        action: reminder.action,
+        due: reminder.due
+      });
+    };
+
+    EditDialog.prototype.hide = function hide() {
+      this.setState({ display: false });
+    };
+
+    EditDialog.prototype.render = function render() {
+      var _this3 = this;
+
+      var due = moment(this.state.due);
+
+      if (!this.state.display) {
+        return null;
+      }
+
+      return jsx('div', {}, void 0, jsx('div', {
+        className: 'dialog-overlay'
+      }), jsx('div', {
+        className: 'dialog'
+      }, void 0, jsx('div', {
+        className: 'dialog-title'
+      }, void 0, jsx('h3', {}, void 0, 'Edit reminder'), jsx('span', {
+        className: 'dialog-title__close',
+        onClick: this.onClose
+      }, void 0, 'Close')), jsx('div', {
+        className: 'dialog-content'
+      }, void 0, jsx('div', {
+        className: 'dialog-content__section'
+      }, void 0, jsx('h4', {}, void 0, 'Recipients'), jsx('input', {
+        className: 'dialog-content__input',
+        value: this.state.recipients,
+        disabled: true
+      })), jsx('div', {
+        className: 'dialog-content__section'
+      }, void 0, jsx('h4', {}, void 0, 'Action'), jsx('textarea', {
+        className: 'dialog-content__input',
+        value: this.state.action,
+        onChange: this.onChangeAction
+      })), jsx('div', {
+        className: 'dialog-content__section'
+      }, void 0, jsx('h4', {}, void 0, 'Due time'), React.createElement('input', { className: 'dialog-content__input dialog-content__half',
+        type: 'date',
+        value: due.format('YYYY-MM-DD'),
+        onChange: this.onChangeDue,
+        ref: function (t) {
+          return _this3.dueDateInput = t;
+        } }), React.createElement('input', { className: 'dialog-content__input dialog-content__half',
+        type: 'time',
+        value: due.format('HH:mm'),
+        onChange: this.onChangeDue,
+        ref: function (t) {
+          return _this3.dueTimeInput = t;
+        } }))), jsx('div', {
+        className: 'dialog-buttons'
+      }, void 0, jsx('button', {
+        className: 'dialog-buttons__save',
+        onClick: this.onSave
+      }, void 0, 'Save'), jsx('button', {
+        className: 'dialog-buttons__cancel',
+        onClick: this.onClose
+      }, void 0, 'Cancel'))));
+    };
+
+    return EditDialog;
   }(React.Component);
 
   var RemindersList = function (_React$Component) {
@@ -367,11 +516,21 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       };
 
       _this.server = props.server;
+      _this.refreshReminders = props.refreshReminders;
+
+      _this.editDialog = null;
       return _this;
     }
 
     RemindersList.prototype.componentWillReceiveProps = function componentWillReceiveProps(props) {
       this.setState({ reminders: props.reminders });
+    };
+
+    RemindersList.prototype.onEdit = function onEdit(id) {
+      var reminder = this.state.reminders.find(function (reminder) {
+        return reminder.id === id;
+      });
+      this.editDialog.show(reminder);
     };
 
     RemindersList.prototype.onDelete = function onDelete(id) {
@@ -434,13 +593,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           }, void 0, remindersDay.map(function (reminder) {
             return jsx(ReminderItem, {
               reminder: reminder,
-              onDelete: _this3.onDelete.bind(_this3, reminder.id)
+              onDelete: _this3.onDelete.bind(_this3, reminder.id),
+              onEdit: _this3.onEdit.bind(_this3, reminder.id)
             }, reminder.id);
           })));
         }));
       });
 
-      return jsx('div', {}, void 0, remindersNode);
+      return jsx('div', {}, void 0, remindersNode, React.createElement(EditDialog, { server: this.server,
+        refreshReminders: this.refreshReminders,
+        ref: function (t) {
+          return _this3.editDialog = t;
+        } }));
     };
 
     return RemindersList;
@@ -466,6 +630,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       _this.onReminder = _this.onReminder.bind(_this);
       _this.onParsingFailure = _this.onParsingFailure.bind(_this);
       _this.onWebPushMessage = _this.onWebPushMessage.bind(_this);
+      _this.refreshReminders = _this.refreshReminders.bind(_this);
 
       moment.locale(navigator.languages || navigator.language || 'en-US');
       return _this;
@@ -474,9 +639,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     Reminders.prototype.componentDidMount = function componentDidMount() {
       var _this2 = this;
 
-      this.server.reminders.getAll().then(function (reminders) {
-        _this2.setState({ reminders });
-      });
+      this.refreshReminders();
 
       // Refresh the page every 5 minutes if idle.
       this.refreshInterval = setInterval(function () {
@@ -519,8 +682,16 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       console.log(evt.type);
     };
 
-    Reminders.prototype.onReminder = function onReminder(evt) {
+    Reminders.prototype.refreshReminders = function refreshReminders() {
       var _this3 = this;
+
+      this.server.reminders.getAll().then(function (reminders) {
+        _this3.setState({ reminders });
+      });
+    };
+
+    Reminders.prototype.onReminder = function onReminder(evt) {
+      var _this4 = this;
 
       var _evt$result = evt.result;
       var recipients = _evt$result.recipients;
@@ -536,18 +707,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         action,
         due
       }).then(function (reminder) {
-        var reminders = _this3.state.reminders;
+        var reminders = _this4.state.reminders;
         reminders.push(reminder);
 
-        _this3.setState({ reminders });
+        _this4.setState({ reminders });
 
-        _this3.toaster.success(confirmation);
-        _this3.speechController.speak(confirmation);
+        _this4.toaster.success(confirmation);
+        _this4.speechController.speak(confirmation);
       }).catch(function (res) {
         console.error('Saving the reminder failed.', res);
         var message = 'This reminder could not be saved. ' + 'Please try again later.';
-        _this3.toaster.warning(message);
-        _this3.speechController.speak(message);
+        _this4.toaster.warning(message);
+        _this4.speechController.speak(message);
       });
     };
 
@@ -574,15 +745,16 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.render = function render() {
-      var _this4 = this;
+      var _this5 = this;
 
       return jsx('section', {
         className: 'reminders'
       }, void 0, React.createElement(Toaster, { ref: function (t) {
-          return _this4.toaster = t;
+          return _this5.toaster = t;
         } }), jsx(RemindersList, {
         reminders: this.state.reminders,
-        server: this.server
+        server: this.server,
+        refreshReminders: this.refreshReminders
       }));
     };
 
@@ -657,6 +829,77 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return Microphone;
   }(React.Component);
 
+  var FullScreen = function (_React$Component) {
+    inherits(FullScreen, _React$Component);
+
+    function FullScreen(props) {
+      classCallCheck(this, FullScreen);
+
+      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
+
+      _this.fullScreenEnabled = document.fullscreenEnabled || document.mozFullscreenEnabled || document.mozFullScreenEnabled || document.webkitFullscreenEnabled || document.msFullscreenEnabled;
+
+      _this.onFullScreen = _this.onFullScreen.bind(_this);
+      return _this;
+    }
+
+    FullScreen.prototype.onFullScreen = function onFullScreen() {
+      var _this2 = this;
+
+      if (this.isFullScreen) {
+        return;
+      }
+
+      var target = document.body;
+
+      if (target.requestFullscreen) {
+        target.requestFullscreen();
+      } else if (target.msRequestFullscreen) {
+        target.msRequestFullscreen();
+      } else if (target.mozRequestFullScreen) {
+        target.mozRequestFullScreen();
+      } else if (target.mozRequestFullscreen) {
+        target.mozRequestFullscreen();
+      } else if (target.webkitRequestFullscreen) {
+        target.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+      }
+
+      ['fullscreenchange', 'mozfullscreenchange', 'webkitfullscreenchange', 'MSFullscreenChange'].forEach(function (type) {
+        document.addEventListener(type, function () {
+          if (!_this2.isFullScreen) {
+            return;
+          }
+
+          // If we're in fullscreen mode, let's try to lock the orientation.
+          if (screen && 'orientation' in screen && 'lock' in screen.orientation) {
+            screen.orientation.lock('landscape').catch(function () {
+              // Don't panic. We're probably just on desktop.
+            });
+          }
+        });
+      });
+    };
+
+    FullScreen.prototype.render = function render() {
+      if (!this.fullScreenEnabled || this.isFullScreen) {
+        return null;
+      }
+
+      return jsx('button', {
+        className: 'full-screen__button',
+        onClick: this.onFullScreen
+      }, void 0, 'Full screen');
+    };
+
+    createClass(FullScreen, [{
+      key: 'isFullScreen',
+      get: function () {
+        return !!document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+      }
+    }]);
+    return FullScreen;
+  }(React.Component);
+
   var RemindersController = function (_BaseController) {
     inherits(RemindersController, _BaseController);
 
@@ -675,6 +918,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         speechController: this.speechController,
         server: this.server
       }), document.querySelector('.microphone'));
+
+      ReactDOM.render(React.createElement(FullScreen), document.querySelector('.full-screen'));
     };
 
     return RemindersController;
@@ -1136,7 +1381,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         // Use a preferred voice if available.
         utterance.voice = this[p$4.preferredVoice];
       }
-      utterance.lang = 'en';
+      utterance.lang = 'en-GB';
       utterance.pitch = VOICE_PITCH;
       utterance.rate = VOICE_RATE;
 
@@ -1161,7 +1406,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       }
 
       var englishVoices = voices.filter(function (voice) {
-        return voice.lang === 'en' || voice.lang.startsWith('en-');
+        return voice.lang === 'en' || voice.lang.startsWith('en-') || voice.lang.startsWith('en_');
       });
 
       var femaleVoices = englishVoices.filter(function (voice) {
@@ -1187,7 +1432,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
    *     for formatting the time of the day.
    */
 
-  var p$6 = Object.freeze({
+  var p$7 = Object.freeze({
     // Properties
     listFormatter: Symbol('listFormatter'),
 
@@ -1233,7 +1478,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       TwitterCldr.set_data(TwitterCldrDataBundle);
 
-      this[p$6.listFormatter] = new TwitterCldr.ListFormatter();
+      this[p$7.listFormatter] = new TwitterCldr.ListFormatter();
     }
 
     /**
@@ -1245,11 +1490,11 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Confirmation.prototype.getReminderMessage = function getReminderMessage(reminder) {
-      var template = this[p$6.getLocalised]('template');
+      var template = this[p$7.getLocalised]('template');
       var data = {
-        users: this[p$6.formatUser](reminder),
-        action: this[p$6.formatAction](reminder),
-        time: this[p$6.formatTime](reminder)
+        users: this[p$7.formatUser](reminder),
+        action: this[p$7.formatAction](reminder),
+        time: this[p$7.formatTime](reminder)
       };
 
       return template.replace(/\[([^\]]+)\]/g, function (match, placeholder) {
@@ -1266,7 +1511,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Confirmation.prototype[p$6.getLocalised] = function (prop) {
+    Confirmation.prototype[p$7.getLocalised] = function (prop) {
       var locale = this.locale;
       if (!PATTERNS$1[this.locale] || !PATTERNS$1[this.locale][prop]) {
         locale = DEFAULT_LOCALE;
@@ -1275,18 +1520,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return PATTERNS$1[locale][prop];
     };
 
-    Confirmation.prototype[p$6.formatUser] = function (reminder) {
+    Confirmation.prototype[p$7.formatUser] = function (reminder) {
       var recipients = reminder.recipients;
 
-      var formatUser = this[p$6.getLocalised]('formatUser');
+      var formatUser = this[p$7.getLocalised]('formatUser');
       var formattedRecipients = recipients.map(formatUser);
-      return this[p$6.listFormatter].format(formattedRecipients);
+      return this[p$7.listFormatter].format(formattedRecipients);
     };
 
-    Confirmation.prototype[p$6.formatAction] = function (reminder) {
+    Confirmation.prototype[p$7.formatAction] = function (reminder) {
       var action = reminder.action;
 
-      var formatUser = this[p$6.getLocalised]('formatUser');
+      var formatUser = this[p$7.getLocalised]('formatUser');
       var formattedAction = formatUser(action);
       var PATTERN1 = new RegExp(`\\bthat \\[action\\]`, 'iu');
       var PATTERN2 = new RegExp(`\\bit is \\[action\\]`, 'iu');
@@ -1303,36 +1548,36 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return `to ${ formattedAction }`;
     };
 
-    Confirmation.prototype[p$6.formatTime] = function (reminder) {
+    Confirmation.prototype[p$7.formatTime] = function (reminder) {
       var due = reminder.due;
 
 
-      if (this[p$6.isToday](due)) {
-        var hour = this[p$6.formatHoursAndMinutes](due);
+      if (this[p$7.isToday](due)) {
+        var hour = this[p$7.formatHoursAndMinutes](due);
         return `at ${ hour } today`;
-      } else if (this[p$6.isTomorrow](due)) {
-        var _hour = this[p$6.formatHoursAndMinutes](due);
+      } else if (this[p$7.isTomorrow](due)) {
+        var _hour = this[p$7.formatHoursAndMinutes](due);
         return `at ${ _hour } tomorrow`;
-      } else if (this[p$6.isThisMonth](due)) {
+      } else if (this[p$7.isThisMonth](due)) {
         return moment(due).format('[on the] Do');
       }
 
       return moment(due).format('[on] MMMM [the] Do');
     };
 
-    Confirmation.prototype[p$6.isToday] = function (date) {
+    Confirmation.prototype[p$7.isToday] = function (date) {
       var today = moment().startOf('day');
       var tomorrow = moment().add(1, 'day').startOf('day');
       return moment(date).isBetween(today, tomorrow);
     };
 
-    Confirmation.prototype[p$6.isTomorrow] = function (date) {
+    Confirmation.prototype[p$7.isTomorrow] = function (date) {
       var tomorrow = moment().add(1, 'day').startOf('day');
       var in2days = moment().add(2, 'day').startOf('day');
       return moment(date).isBetween(tomorrow, in2days);
     };
 
-    Confirmation.prototype[p$6.isThisMonth] = function (date) {
+    Confirmation.prototype[p$7.isThisMonth] = function (date) {
       var thisMonth = moment().startOf('month');
       var nextMonth = moment().add(1, 'month').startOf('month');
       return moment(date).isBetween(thisMonth, nextMonth);
@@ -1346,7 +1591,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Confirmation.prototype[p$6.formatHoursAndMinutes] = function (date) {
+    Confirmation.prototype[p$7.formatHoursAndMinutes] = function (date) {
       date = moment(date);
       if (date.minute() === 0) {
         return date.format('h A'); // 7 PM
@@ -1485,7 +1730,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
    *     * Generate placeholders.punctuation
    */
 
-  var p$5 = Object.freeze({
+  var p$6 = Object.freeze({
     // Properties
     confirmation: Symbol('confirmation'),
     patterns: Symbol('patterns'),
@@ -1536,45 +1781,45 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     }
   };
 
-  var IntentParser = function () {
-    function IntentParser() {
+  var ReminderParser = function () {
+    function ReminderParser() {
       var locale = arguments.length <= 0 || arguments[0] === undefined ? 'en' : arguments[0];
-      classCallCheck(this, IntentParser);
+      classCallCheck(this, ReminderParser);
 
       this.locale = locale;
-      this[p$5.confirmation] = new Confirmation(locale);
-      this[p$5.patterns] = {};
+      this[p$6.confirmation] = new Confirmation(locale);
+      this[p$6.patterns] = {};
 
-      this[p$5.init]();
-
-      window.intentParser = this;
+      this[p$6.init]();
 
       Object.seal(this);
     }
 
-    IntentParser.prototype.parse = function parse() {
+    ReminderParser.prototype.parse = function parse() {
       var _this = this;
 
       var phrase = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      if (!phrase) {
-        return Promise.reject('Empty string.');
-      }
-
       return new Promise(function (resolve, reject) {
-        phrase = _this[p$5.normalise](phrase);
+        if (!phrase) {
+          console.error('Empty string.');
+          return reject(null);
+        }
 
-        var _p$parseDatetime = _this[p$5.parseDatetime](phrase);
+        phrase = _this[p$6.normalise](phrase);
+
+        var _p$parseDatetime = _this[p$6.parseDatetime](phrase);
 
         var due = _p$parseDatetime.due;
         var processedPhrase = _p$parseDatetime.processedPhrase;
 
 
         if (!due) {
-          return reject('Time could not be parsed.');
+          console.error('Time could not be parsed.');
+          return reject(null);
         }
 
-        var successful = _this[p$5.patterns][_this.locale].some(function (pattern) {
+        var successful = _this[p$6.patterns][_this.locale].some(function (pattern) {
           if (!pattern.regexp.test(processedPhrase)) {
             return false;
           }
@@ -1582,13 +1827,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           var segments = pattern.regexp.exec(processedPhrase);
           segments.shift();
 
-          var recipients = _this[p$5.parseUsers](segments[pattern.placeholders.users], phrase);
-          var action = _this[p$5.parseAction](segments[pattern.placeholders.action], phrase);
+          var recipients = _this[p$6.parseUsers](segments[pattern.placeholders.users], phrase);
+          var action = _this[p$6.parseAction](segments[pattern.placeholders.action], phrase);
 
           // The original pattern matching the intent.
           var match = pattern.match;
 
-          var confirmation = _this[p$5.confirmation].getReminderMessage({
+          var confirmation = _this[p$6.confirmation].getReminderMessage({
             recipients,
             action,
             due,
@@ -1600,12 +1845,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         });
 
         if (!successful) {
-          return reject('Unsupported intent format.');
+          console.error('Unsupported intent format.');
+          return reject(null);
         }
       });
     };
 
-    IntentParser.prototype[p$5.parseUsers] = function () {
+    ReminderParser.prototype[p$6.parseUsers] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       return string.split(PATTERNS[this.locale].listBreaker).map(function (user) {
@@ -1613,13 +1859,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       });
     };
 
-    IntentParser.prototype[p$5.parseAction] = function () {
+    ReminderParser.prototype[p$6.parseAction] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       return string.trim();
     };
 
-    IntentParser.prototype[p$5.parseDatetime] = function () {
+    ReminderParser.prototype[p$6.parseDatetime] = function () {
       var phrase = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       phrase = phrase.trim();
@@ -1642,7 +1888,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return { due, processedPhrase };
     };
 
-    IntentParser.prototype[p$5.normalise] = function () {
+    ReminderParser.prototype[p$6.normalise] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
       var locale = arguments.length <= 1 || arguments[1] === undefined ? this.locale : arguments[1];
 
@@ -1660,17 +1906,17 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    IntentParser.prototype[p$5.init] = function () {
+    ReminderParser.prototype[p$6.init] = function () {
       var _this2 = this;
 
       Object.keys(PATTERNS).forEach(function (locale) {
-        _this2[p$5.patterns][locale] = PATTERNS[locale].patterns.map(function (phrase) {
-          return _this2[p$5.buildPatterns](locale, phrase, PATTERNS[locale].placeholders);
+        _this2[p$6.patterns][locale] = PATTERNS[locale].patterns.map(function (phrase) {
+          return _this2[p$6.buildPatterns](locale, phrase, PATTERNS[locale].placeholders);
         });
       });
     };
 
-    IntentParser.prototype[p$5.buildPatterns] = function () {
+    ReminderParser.prototype[p$6.buildPatterns] = function () {
       var locale = arguments.length <= 0 || arguments[0] === undefined ? this.locale : arguments[0];
 
       var _this3 = this;
@@ -1678,8 +1924,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var match = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
       var placeholders = arguments[2];
 
-      var phrase = this[p$5.normalise](match, locale);
-      var tokens = this[p$5.splitOnPlaceholders](phrase);
+      var phrase = this[p$6.normalise](match, locale);
+      var tokens = this[p$6.splitOnPlaceholders](phrase);
       var order = {};
       var placeholderIndex = 0;
 
@@ -1703,7 +1949,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         }
 
         // Leading and trailing spaces are changed to word boundary.
-        return _this3[p$5.escape](token).replace(new RegExp('^ ', 'u'), '\\b').replace(new RegExp(' $', 'u'), '\\b');
+        return _this3[p$6.escape](token).replace(new RegExp('^ ', 'u'), '\\b').replace(new RegExp(' $', 'u'), '\\b');
       });
 
       var regexp = new RegExp(`^${ pattern.join('') }$`, 'iu');
@@ -1720,7 +1966,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    IntentParser.prototype[p$5.splitOnPlaceholders] = function (phrase) {
+    ReminderParser.prototype[p$6.splitOnPlaceholders] = function (phrase) {
       var tokens = [''];
       var index = 0;
 
@@ -1749,8 +1995,60 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    IntentParser.prototype[p$5.escape] = function (string) {
+    ReminderParser.prototype[p$6.escape] = function (string) {
       return string.replace(new RegExp('\\.', 'gu'), '\\.').replace(new RegExp('\\/', 'gu'), '\\/').replace(new RegExp('\\(', 'gu'), '\\(').replace(new RegExp('\\)', 'gu'), '\\)');
+    };
+
+    return ReminderParser;
+  }();
+
+  // Mostly a dummy placeholder for now.
+  var QueryParser = function () {
+    function QueryParser() {
+      var locale = arguments.length <= 0 || arguments[0] === undefined ? 'en' : arguments[0];
+      classCallCheck(this, QueryParser);
+
+      this.locale = locale;
+
+      Object.seal(this);
+    }
+
+    QueryParser.prototype.parse = function parse() {
+      return Promise.resolve(null);
+    };
+
+    return QueryParser;
+  }();
+
+  var p$5 = Object.freeze({
+    // Properties
+    parsers: Symbol('parsers')
+  });
+
+  var IntentParser = function () {
+    function IntentParser() {
+      classCallCheck(this, IntentParser);
+
+      this[p$5.parsers] = [new ReminderParser(), new QueryParser()];
+
+      window.intentParser = this;
+    }
+
+    IntentParser.prototype.parse = function parse() {
+      var phrase = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
+
+      var promises = this[p$5.parsers].map(function (parser) {
+        return parser.parse(phrase);
+      });
+
+      // Return the first non null parsed result.
+      return Promise.all(promises).then(function (results) {
+        return results.find(function (result) {
+          return !!result;
+        });
+      }).then(function (result) {
+        return result || null;
+      });
     };
 
     return IntentParser;
@@ -1919,7 +2217,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
    */
   var UPPER_CASE_REGEX = /([A-Z])/g;
 
-  var p$8 = Object.freeze({
+  var p$9 = Object.freeze({
     values: Symbol('values'),
     storage: Symbol('storage'),
 
@@ -1934,7 +2232,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
   var settings = Object.freeze({
     // String settings.
     SESSION: Object.freeze({ key: 'session' }),
-    VOICED: Object.freeze({ key: 'voiced', type: 'boolean' })
+    IS_HUB: Object.freeze({ key: 'isHub', type: 'boolean' })
   });
 
   var Settings = function (_EventDispatcher) {
@@ -1947,7 +2245,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       // Not all browsers have localStorage supported or activated.
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this));
 
-      _this[p$8.storage] = storage || {
+      _this[p$9.storage] = storage || {
         getItem: function () {
           return null;
         },
@@ -1956,17 +2254,17 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         clear: function () {}
       };
 
-      _this[p$8.values] = new Map();
+      _this[p$9.values] = new Map();
 
       Object.keys(settings).forEach(function (settingName) {
         var setting = settings[settingName];
-        var settingStringValue = _this[p$8.storage].getItem(`${ PREFIX }${ setting.key }`);
+        var settingStringValue = _this[p$9.storage].getItem(`${ PREFIX }${ setting.key }`);
 
         // Setting values directly to avoid firing events on startup.
-        _this[p$8.values].set(setting, _this[p$8.stringToSettingTypedValue](setting, settingStringValue));
+        _this[p$9.values].set(setting, _this[p$9.stringToSettingTypedValue](setting, settingStringValue));
       });
 
-      window.addEventListener('storage', _this[p$8.onStorage].bind(_this));
+      window.addEventListener('storage', _this[p$9.onStorage].bind(_this));
 
       Object.seal(_this);
       return _this;
@@ -1983,7 +2281,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return new Promise(function (resolve) {
         Object.keys(settings).forEach(function (settingName) {
           var setting = settings[settingName];
-          _this2[p$8.updateSetting](setting, _this2[p$8.getDefaultSettingValue](setting));
+          _this2[p$9.updateSetting](setting, _this2[p$9.getDefaultSettingValue](setting));
         });
         resolve();
       });
@@ -1999,18 +2297,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Settings.prototype[p$8.updateSetting] = function (setting, newValue) {
-      var currentValue = this[p$8.values].get(setting);
+    Settings.prototype[p$9.updateSetting] = function (setting, newValue) {
+      var currentValue = this[p$9.values].get(setting);
       if (currentValue === newValue) {
         return;
       }
 
-      this[p$8.values].set(setting, newValue);
+      this[p$9.values].set(setting, newValue);
 
-      if (newValue !== this[p$8.getDefaultSettingValue](setting)) {
-        this[p$8.storage].setItem(`${ PREFIX }${ setting.key }`, newValue);
+      if (newValue !== this[p$9.getDefaultSettingValue](setting)) {
+        this[p$9.storage].setItem(`${ PREFIX }${ setting.key }`, newValue);
       } else {
-        this[p$8.storage].removeItem(`${ PREFIX }${ setting.key }`);
+        this[p$9.storage].removeItem(`${ PREFIX }${ setting.key }`);
       }
 
       this.emit(setting.key.replace(UPPER_CASE_REGEX, function (part) {
@@ -2029,11 +2327,11 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Settings.prototype[p$8.stringToSettingTypedValue] = function (setting, stringValue) {
+    Settings.prototype[p$9.stringToSettingTypedValue] = function (setting, stringValue) {
       // If string is null, we should return default value for this setting or
       // default value for setting type.
       if (stringValue === null) {
-        return this[p$8.getDefaultSettingValue](setting);
+        return this[p$9.getDefaultSettingValue](setting);
       } else if (setting.type === 'boolean') {
         return stringValue === 'true';
       } else if (setting.type === 'number') {
@@ -2052,7 +2350,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Settings.prototype[p$8.getDefaultSettingValue] = function (setting) {
+    Settings.prototype[p$9.getDefaultSettingValue] = function (setting) {
       if (setting.defaultValue !== undefined) {
         return setting.defaultValue;
       }
@@ -2076,7 +2374,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Settings.prototype[p$8.onStorage] = function (evt) {
+    Settings.prototype[p$9.onStorage] = function (evt) {
       if (!evt.key.startsWith(PREFIX)) {
         return;
       }
@@ -2093,24 +2391,24 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var setting = settings[settingName];
 
-      this[p$8.updateSetting](setting, this[p$8.stringToSettingTypedValue](setting, evt.newValue));
+      this[p$9.updateSetting](setting, this[p$9.stringToSettingTypedValue](setting, evt.newValue));
     };
 
     createClass(Settings, [{
       key: 'session',
       get: function () {
-        return this[p$8.values].get(settings.SESSION);
+        return this[p$9.values].get(settings.SESSION);
       },
       set: function (value) {
-        this[p$8.updateSetting](settings.SESSION, value);
+        this[p$9.updateSetting](settings.SESSION, value);
       }
     }, {
-      key: 'voiced',
+      key: 'isHub',
       get: function () {
-        return this[p$8.values].get(settings.VOICED);
+        return this[p$9.values].get(settings.IS_HUB);
       },
       set: function (value) {
-        this[p$8.updateSetting](settings.VOICED, value);
+        this[p$9.updateSetting](settings.IS_HUB, value);
       }
 
       // Getters only.
@@ -2138,7 +2436,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
   HttpError.prototype = Object.create(Error.prototype);
 
-  var p$9 = Object.freeze({
+  var p$10 = Object.freeze({
     // Private properties.
     settings: Symbol('settings'),
     online: Symbol('online'),
@@ -2156,12 +2454,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, ['online']));
 
-      _this[p$9.settings] = settings;
-      _this[p$9.online] = false;
+      _this[p$10.settings] = settings;
+      _this[p$10.online] = false;
 
       Object.seal(_this);
 
-      _this[p$9.init]();
+      _this[p$10.init]();
       return _this;
     }
 
@@ -2170,17 +2468,17 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Network.prototype[p$9.init] = function () {
+    Network.prototype[p$10.init] = function () {
       var _this2 = this;
 
-      this[p$9.online] = navigator.onLine;
+      this[p$10.online] = navigator.onLine;
 
       window.addEventListener('online', function (online) {
-        _this2[p$9.online] = online;
+        _this2[p$10.online] = online;
         _this2.emit('online', online);
       });
       window.addEventListener('offline', function (online) {
-        _this2[p$9.online] = online;
+        _this2[p$10.online] = online;
         _this2.emit('online', online);
       });
 
@@ -2188,7 +2486,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         navigator.connection.addEventListener('change', function () {
           var online = navigator.onLine;
 
-          _this2[p$9.online] = online;
+          _this2[p$10.online] = online;
           _this2.emit('online', online);
         });
       }
@@ -2207,7 +2505,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var body = arguments.length <= 2 || arguments[2] === undefined ? undefined : arguments[2];
 
       var accept = 'application/json';
-      return this[p$9.fetch](url, accept, method, body).then(function (response) {
+      return this[p$10.fetch](url, accept, method, body).then(function (response) {
         var contentType = response.headers.get('Content-Type') || '';
         if (response.ok && !contentType.startsWith(accept)) {
           return;
@@ -2229,7 +2527,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Network.prototype.fetchBlob = function fetchBlob(url, blobType, method, body) {
-      return this[p$9.fetch](url, blobType, method, body).then(function (response) {
+      return this[p$10.fetch](url, blobType, method, body).then(function (response) {
         return response.blob();
       });
     };
@@ -2246,7 +2544,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Network.prototype[p$9.fetch] = function (url, accept) {
+    Network.prototype[p$10.fetch] = function (url, accept) {
       var method = arguments.length <= 2 || arguments[2] === undefined ? 'GET' : arguments[2];
       var body = arguments.length <= 3 || arguments[3] === undefined ? undefined : arguments[3];
 
@@ -2258,9 +2556,9 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         cache: 'no-store'
       };
 
-      if (this[p$9.settings].session) {
+      if (this[p$10.settings].session) {
         // The user is logged in, we authenticate the request.
-        req.headers.Authorization = `Bearer ${ this[p$9.settings].session }`;
+        req.headers.Authorization = `Bearer ${ this[p$10.settings].session }`;
       }
 
       if (body !== undefined) {
@@ -2280,19 +2578,19 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     createClass(Network, [{
       key: 'origin',
       get: function () {
-        return this[p$9.settings].origin;
+        return this[p$10.settings].origin;
       }
     }, {
       key: 'online',
       get: function () {
-        return this[p$9.online];
+        return this[p$10.online];
       }
     }]);
     return Network;
   }(EventDispatcher);
 
   // Private members
-  var p$10 = Object.freeze({
+  var p$11 = Object.freeze({
     // Properties,
     api: Symbol('api'),
     settings: Symbol('settings'),
@@ -2309,8 +2607,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, ['message']));
 
-      _this[p$10.api] = api;
-      _this[p$10.settings] = settings;
+      _this[p$11.api] = api;
+      _this[p$11.settings] = settings;
 
       Object.seal(_this);
       return _this;
@@ -2323,7 +2621,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         return Promise.reject('No service worker supported');
       }
 
-      navigator.serviceWorker.addEventListener('message', this[p$10.listenForMessages].bind(this));
+      navigator.serviceWorker.addEventListener('message', this[p$11.listenForMessages].bind(this));
 
       return navigator.serviceWorker.ready.then(function (reg) {
         return reg.pushManager.getSubscription().then(function (existing) {
@@ -2332,7 +2630,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       }).then(function (subscription) {
         return (
           // The server checks for duplicates
-          _this2[p$10.api].post('subscriptions', {
+          _this2[p$11.api].post('subscriptions', {
             subscription,
             title: `Browser ${ navigator.userAgent }`
           })
@@ -2351,7 +2649,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       });
     };
 
-    WebPush.prototype[p$10.listenForMessages] = function (evt) {
+    WebPush.prototype[p$11.listenForMessages] = function (evt) {
       if (!evt.data) {
         console.error('Received a push message without a payload.');
         return;
@@ -2362,7 +2660,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return WebPush;
   }(EventDispatcher);
 
-  var p$11 = Object.freeze({
+  var p$12 = Object.freeze({
     settings: Symbol('settings'),
     net: Symbol('net'),
 
@@ -2387,8 +2685,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     function API(net, settings) {
       classCallCheck(this, API);
 
-      this[p$11.net] = net;
-      this[p$11.settings] = settings;
+      this[p$12.net] = net;
+      this[p$12.settings] = settings;
 
       Object.freeze(this);
     }
@@ -2405,8 +2703,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     API.prototype.get = function get(path) {
       var _this = this;
 
-      return this[p$11.onceReady]().then(function () {
-        return _this[p$11.net].fetchJSON(_this[p$11.getURL](path));
+      return this[p$12.onceReady]().then(function () {
+        return _this[p$12.net].fetchJSON(_this[p$12.getURL](path));
       });
     };
 
@@ -2424,8 +2722,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     API.prototype.post = function post(path, body) {
       var _this2 = this;
 
-      return this[p$11.onceReady]().then(function () {
-        return _this2[p$11.net].fetchJSON(_this2[p$11.getURL](path), 'POST', body);
+      return this[p$12.onceReady]().then(function () {
+        return _this2[p$12.net].fetchJSON(_this2[p$12.getURL](path), 'POST', body);
       });
     };
 
@@ -2443,8 +2741,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     API.prototype.put = function put(path, body) {
       var _this3 = this;
 
-      return this[p$11.onceReady]().then(function () {
-        return _this3[p$11.net].fetchJSON(_this3[p$11.getURL](path), 'PUT', body);
+      return this[p$12.onceReady]().then(function () {
+        return _this3[p$12.net].fetchJSON(_this3[p$12.getURL](path), 'PUT', body);
       });
     };
 
@@ -2462,8 +2760,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     API.prototype.delete = function _delete(path, body) {
       var _this4 = this;
 
-      return this[p$11.onceReady]().then(function () {
-        return _this4[p$11.net].fetchJSON(_this4[p$11.getURL](path), 'DELETE', body);
+      return this[p$12.onceReady]().then(function () {
+        return _this4[p$12.net].fetchJSON(_this4[p$12.getURL](path), 'DELETE', body);
       });
     };
 
@@ -2486,12 +2784,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var accept = arguments.length <= 2 || arguments[2] === undefined ? 'image/jpeg' : arguments[2];
 
-      return this[p$11.onceReady]().then(function () {
+      return this[p$12.onceReady]().then(function () {
         if (body) {
-          return _this5[p$11.net].fetchBlob(_this5[p$11.getURL](path), accept, 'PUT', body);
+          return _this5[p$12.net].fetchBlob(_this5[p$12.getURL](path), accept, 'PUT', body);
         }
 
-        return _this5[p$11.net].fetchBlob(_this5[p$11.getURL](path), accept);
+        return _this5[p$12.net].fetchBlob(_this5[p$12.getURL](path), accept);
       });
     };
 
@@ -2506,12 +2804,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    API.prototype[p$11.getURL] = function (path) {
+    API.prototype[p$12.getURL] = function (path) {
       if (!path || typeof path !== 'string') {
         throw new Error('Path should be a valid non-empty string.');
       }
 
-      return `${ this[p$11.net].origin }/api/v${ this[p$11.settings].apiVersion }/${ path }`;
+      return `${ this[p$12.net].origin }/api/v${ this[p$12.settings].apiVersion }/${ path }`;
     };
 
     /**
@@ -2526,8 +2824,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    API.prototype[p$11.onceReady] = function () {
-      return Promise.all([this[p$11.onceOnline]()]);
+    API.prototype[p$12.onceReady] = function () {
+      return Promise.all([this[p$12.onceOnline]()]);
     };
 
     /**
@@ -2538,8 +2836,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    API.prototype[p$11.onceOnline] = function () {
-      var net = this[p$11.net];
+    API.prototype[p$12.onceOnline] = function () {
+      var net = this[p$12.net];
       if (net.online) {
         return Promise.resolve();
       }
@@ -2554,7 +2852,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return API;
   }();
 
-  var p$12 = Object.freeze({
+  var p$13 = Object.freeze({
     api: Symbol('api'),
     settings: Symbol('settings')
   });
@@ -2563,8 +2861,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     function Reminders(api, settings) {
       classCallCheck(this, Reminders);
 
-      this[p$12.api] = api;
-      this[p$12.settings] = settings;
+      this[p$13.api] = api;
+      this[p$13.settings] = settings;
 
       Object.seal(this);
     }
@@ -2577,7 +2875,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.getAll = function getAll() {
-      return this[p$12.api].get('reminders');
+      return this[p$13.api].get('reminders');
     };
 
     /**
@@ -2589,7 +2887,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.get = function get(id) {
-      return this[p$12.api].get(`reminders/${ id }`);
+      return this[p$13.api].get(`reminders/${ id }`);
     };
 
     /**
@@ -2601,7 +2899,25 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.set = function set(body) {
-      return this[p$12.api].post(`reminders`, body);
+      return this[p$13.api].post(`reminders`, body);
+    };
+
+    /**
+     * Create a new reminder.
+     *
+     * @param {Object} body
+     * @return {Promise}
+     */
+
+
+    Reminders.prototype.update = function update(body) {
+      var id = body.id;
+
+      if (isNaN(id) || typeof id !== 'number') {
+        return Promise.reject(new Error('The reminder id is not a number.'));
+      }
+
+      return this[p$13.api].put(`reminders/${ id }`, body);
     };
 
     /**
@@ -2613,14 +2929,14 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.delete = function _delete(id) {
-      return this[p$12.api].delete(`reminders/${ id }`);
+      return this[p$13.api].delete(`reminders/${ id }`);
     };
 
     return Reminders;
   }();
 
   // Private members.
-  var p$7 = Object.freeze({
+  var p$8 = Object.freeze({
     // Private properties.
     settings: Symbol('settings'),
     net: Symbol('net'),
@@ -2641,18 +2957,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       // Private properties.
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, ['login', 'online', 'push-message']));
 
-      _this[p$7.settings] = settings || new Settings();
-      _this[p$7.net] = net || new Network(_this[p$7.settings]);
-      _this[p$7.api] = new API(_this[p$7.net], _this[p$7.settings]);
-      _this[p$7.webPush] = new WebPush(_this[p$7.api], _this[p$7.settings]);
+      _this[p$8.settings] = settings || new Settings();
+      _this[p$8.net] = net || new Network(_this[p$8.settings]);
+      _this[p$8.api] = new API(_this[p$8.net], _this[p$8.settings]);
+      _this[p$8.webPush] = new WebPush(_this[p$8.api], _this[p$8.settings]);
 
       // Init
-      _this.reminders = new Reminders$1(_this[p$7.api], _this[p$7.settings]);
+      _this.reminders = new Reminders$1(_this[p$8.api], _this[p$8.settings]);
 
-      _this[p$7.net].on('online', function (online) {
+      _this[p$8.net].on('online', function (online) {
         return _this.emit('online', online);
       });
-      _this[p$7.webPush].on('message', function (msg) {
+      _this[p$8.webPush].on('message', function (msg) {
         return _this.emit('push-message', msg);
       });
 
@@ -2672,8 +2988,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     Server.prototype.login = function login(user, password) {
       var _this2 = this;
 
-      return this[p$7.api].post('login', { user, password }).then(function (res) {
-        _this2[p$7.settings].session = res.token;
+      return this[p$8.api].post('login', { user, password }).then(function (res) {
+        _this2[p$8.settings].session = res.token;
         _this2.emit('login');
       });
     };
@@ -2686,7 +3002,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Server.prototype.logout = function logout() {
-      this[p$7.settings].session = null;
+      this[p$8.settings].session = null;
       return Promise.resolve();
     };
 
@@ -2703,7 +3019,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       if (!this.isLoggedIn) {
         return Promise.reject(new Error('Error while subscribing to push notifications: user is not logged in'));
       }
-      return this[p$7.webPush].subscribeToNotifications();
+      return this[p$8.webPush].subscribeToNotifications();
     };
 
     Server.prototype.clearServiceWorker = function clearServiceWorker() {
@@ -2719,12 +3035,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     createClass(Server, [{
       key: 'online',
       get: function () {
-        return this[p$7.net].online;
+        return this[p$8.net].online;
       }
     }, {
       key: 'isLoggedIn',
       get: function () {
-        return !!this[p$7.settings].session;
+        return !!this[p$8.settings].session;
       }
     }]);
     return Server;
@@ -2736,7 +3052,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     server: Symbol('server'),
     subscribeToNotifications: Symbol('subscribeToNotifications'),
     settings: Symbol('settings'),
-    initVoiced: Symbol('initVoiced'),
+    initHub: Symbol('initHub'),
 
     onHashChanged: Symbol('onHashChanged')
   });
@@ -2753,7 +3069,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var speechController = new SpeechController();
       var settings = new Settings();
       var server = new Server({ settings });
-      var options = { mountNode, speechController, server };
+      var options = { mountNode, speechController, server, settings };
 
       var usersController = new UsersController(options);
       var remindersController = new RemindersController(options);
@@ -2767,7 +3083,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       _this[p.speechController] = speechController;
       _this[p.server] = server;
       _this[p.settings] = settings;
-      _this[p.initVoiced]();
+      _this[p.initHub]();
 
       window.addEventListener('hashchange', _this[p.onHashChanged].bind(_this));
       return _this;
@@ -2775,12 +3091,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
     MainController.prototype.main = function main() {
       var _this2 = this;
-
-      if (screen && 'orientation' in screen && 'lock' in screen.orientation) {
-        screen.orientation.lock('landscape').catch(function (e) {
-          console.error(e);
-        });
-      }
 
       this[p.speechController].start().then(function () {
         console.log('Speech controller started');
@@ -2790,7 +3100,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         return _this2[p.subscribeToNotifications]();
       });
       this[p.server].on('push-message', function (message) {
-        if (_this2[p.settings].voiced) {
+        if (_this2[p.settings].isHub) {
           _this2[p.speechController].speak(`${ message.title }: ${ message.body }`);
         }
       });
@@ -2847,7 +3157,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         }
       }
 
-      this[p.initVoiced]();
+      this[p.initHub]();
     };
 
     MainController.prototype[p.subscribeToNotifications] = function () {
@@ -2857,24 +3167,28 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     };
 
     /**
-     * Will init the `voiced` property, which controls whether a notification is
-     * spoken.
+     * Will init the `isHub` property, which controls whether the device is
+     * a group/family device or a member's personal device.
      *
      * This works by using a specific hash while loading or running the
      * application.
-     * Recognized syntaxes are: voiced=1/true/0/false
+     * Recognised syntaxes are: #hub=1/true/0/false
      */
 
 
-    MainController.prototype[p.initVoiced] = function () {
-      var forcedMatch = location.hash.match(/\bvoiced=(.+?)(&|$)/);
+    MainController.prototype[p.initHub] = function () {
+      var match = location.hash.match(/\bhub=(.+)(&|$)/);
 
-      if (forcedMatch) {
-        var matchedValue = forcedMatch[1];
-        var forceVoiced = matchedValue === '1' || matchedValue === 'true';
+      if (match) {
+        var matchedValue = match[1];
+        var isHub = matchedValue === '1' || matchedValue === 'true';
 
-        console.log('Forcing the `voiced` property to ', forceVoiced);
-        this[p.settings].voiced = forceVoiced;
+        console.log('Setting the `isHub` property to ', isHub);
+        this[p.settings].isHub = isHub;
+
+        // Redirect to the root of the application.
+        location.hash = '';
+        location.reload();
       }
     };
 
