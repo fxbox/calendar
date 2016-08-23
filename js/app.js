@@ -290,6 +290,133 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return Toaster;
   }(React.Component);
 
+  var Microphone = function (_React$Component) {
+    inherits(Microphone, _React$Component);
+
+    function Microphone(props) {
+      classCallCheck(this, Microphone);
+
+      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
+
+      _this.state = {
+        isListeningToSpeech: false
+      };
+
+      _this.speechController = props.speechController;
+      _this.server = props.server;
+
+      _this.audioCtx = new window.AudioContext();
+      _this.audioBuffer = null;
+      _this.bufferSource = null;
+      _this.timeout = null;
+
+      _this.startListeningToSpeech = _this.startListeningToSpeech.bind(_this);
+      _this.stopListeningToSpeech = _this.stopListeningToSpeech.bind(_this);
+      _this.onClickMic = _this.onClickMic.bind(_this);
+      return _this;
+    }
+
+    Microphone.prototype.componentDidMount = function componentDidMount() {
+      this.loadAudio();
+
+      //this.speechController.on('wakeheard', this.startListeningToSpeech);
+      this.speechController.on('speechrecognitionstop', this.stopListeningToSpeech);
+    };
+
+    Microphone.prototype.componentWillUnmount = function componentWillUnmount() {
+      //this.speechController.off('wakeheard', this.startListeningToSpeech);
+      this.speechController.off('speechrecognitionstop', this.stopListeningToSpeech);
+    };
+
+    Microphone.prototype.loadAudio = function loadAudio() {
+      var _this2 = this;
+
+      fetch('media/cue.wav').then(function (res) {
+        if (!res.ok) {
+          throw new Error(res.status);
+        }
+
+        return res.arrayBuffer();
+      }).then(function (arrayBuffer) {
+        _this2.audioCtx.decodeAudioData(arrayBuffer, function (buffer) {
+          _this2.audioBuffer = buffer;
+        }, function (err) {
+          console.error('The audio buffer could not be decoded.', err);
+        });
+      });
+    };
+
+    Microphone.prototype.playBleep = function playBleep() {
+      if (!this.audioBuffer) {
+        return;
+      }
+
+      this.bufferSource = this.audioCtx.createBufferSource();
+      this.bufferSource.buffer = this.audioBuffer;
+      this.bufferSource.connect(this.audioCtx.destination);
+      this.bufferSource.start(0);
+    };
+
+    Microphone.prototype.stopBleep = function stopBleep() {
+      if (!this.bufferSource) {
+        return;
+      }
+
+      this.bufferSource.stop(0);
+      this.bufferSource = null;
+    };
+
+    Microphone.prototype.startListeningToSpeech = function startListeningToSpeech() {
+      this.playBleep();
+      this.setState({ isListeningToSpeech: true });
+    };
+
+    Microphone.prototype.stopListeningToSpeech = function stopListeningToSpeech() {
+      this.stopBleep();
+      this.setState({ isListeningToSpeech: false });
+    };
+
+    Microphone.prototype.onClickMic = function onClickMic() {
+      var _this3 = this;
+
+      if (!this.state.isListeningToSpeech) {
+        this.playBleep();
+        this.setState({ isListeningToSpeech: true });
+        this.timeout = setTimeout(function () {
+          // When the sound finished playing
+          _this3.stopBleep();
+          _this3.speechController.startSpeechRecognition();
+        }, 1000);
+        return;
+      }
+
+      clearTimeout(this.timeout);
+      this.stopBleep();
+      this.setState({ isListeningToSpeech: false });
+      this.speechController.stopSpeechRecognition();
+    };
+
+    Microphone.prototype.render = function render() {
+      if (!this.server.isLoggedIn) {
+        return null;
+      }
+
+      var className = this.state.isListeningToSpeech ? 'listening' : '';
+
+      return jsx('div', {
+        className: className,
+        onClick: this.onClickMic
+      }, void 0, jsx('div', {
+        className: 'microphone__background'
+      }), jsx('img', {
+        className: 'microphone__icon',
+        src: 'css/icons/microphone.svg'
+      }));
+    };
+
+    return Microphone;
+  }(React.Component);
+
   var COLOURS = ['red', 'orange', 'green', 'blue', 'violet'];
 
   var ReminderItem = function (_React$Component) {
@@ -624,13 +751,17 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       _this.speechController = props.speechController;
       _this.server = props.server;
+
       _this.refreshInterval = null;
       _this.toaster = null;
+      _this.microphone = null;
       _this.debugEvent = _this.debugEvent.bind(_this);
+      _this.onWakeWord = _this.onWakeWord.bind(_this);
       _this.onReminder = _this.onReminder.bind(_this);
       _this.onParsingFailure = _this.onParsingFailure.bind(_this);
       _this.onWebPushMessage = _this.onWebPushMessage.bind(_this);
       _this.refreshReminders = _this.refreshReminders.bind(_this);
+      _this.addReminder = _this.addReminder.bind(_this);
 
       moment.locale(navigator.languages || navigator.language || 'en-US');
       return _this;
@@ -639,7 +770,9 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     Reminders.prototype.componentDidMount = function componentDidMount() {
       var _this2 = this;
 
-      this.refreshReminders();
+      this.refreshReminders().then(function () {
+        console.log('Reminders loaded');
+      });
 
       // Refresh the page every 5 minutes if idle.
       this.refreshInterval = setInterval(function () {
@@ -654,6 +787,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       this.speechController.on('speechrecognitionstart', this.debugEvent);
       this.speechController.on('speechrecognitionstop', this.debugEvent);
       this.speechController.on('reminder', this.debugEvent);
+
+      this.speechController.on('wakeheard', this.onWakeWord);
       this.speechController.on('reminder', this.onReminder);
       this.speechController.on('parsing-failed', this.onParsingFailure);
       this.server.on('push-message', this.onWebPushMessage);
@@ -668,6 +803,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       this.speechController.off('speechrecognitionstart', this.debugEvent);
       this.speechController.off('speechrecognitionstop', this.debugEvent);
       this.speechController.off('reminder', this.debugEvent);
+
+      this.speechController.off('wakeheard', this.onWakeWord);
       this.speechController.off('reminder', this.onReminder);
       this.speechController.off('parsing-failed', this.onParsingFailure);
       this.server.off('push-message', this.onWebPushMessage);
@@ -685,9 +822,21 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     Reminders.prototype.refreshReminders = function refreshReminders() {
       var _this3 = this;
 
-      this.server.reminders.getAll().then(function (reminders) {
+      // @todo Add a loader.
+      return this.server.reminders.getAll().then(function (reminders) {
         _this3.setState({ reminders });
       });
+    };
+
+    Reminders.prototype.addReminder = function addReminder(reminder) {
+      var reminders = this.state.reminders;
+      reminders.push(reminder);
+
+      this.setState({ reminders });
+    };
+
+    Reminders.prototype.onWakeWord = function onWakeWord() {
+      this.microphone.startListeningToSpeech();
     };
 
     Reminders.prototype.onReminder = function onReminder(evt) {
@@ -699,33 +848,47 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var due = _evt$result.due;
       var confirmation = _evt$result.confirmation;
 
+
+      this.microphone.stopListeningToSpeech();
+
       // @todo Nice to have: optimistic update.
       // https://github.com/fxbox/calendar/issues/32
-
       this.server.reminders.set({
         recipients,
         action,
         due
       }).then(function (reminder) {
-        var reminders = _this4.state.reminders;
-        reminders.push(reminder);
-
-        _this4.setState({ reminders });
+        _this4.addReminder(reminder);
 
         _this4.toaster.success(confirmation);
-        _this4.speechController.speak(confirmation);
+        _this4.speechController.speak(confirmation).then(function () {
+          console.log('Utterance terminated.');
+          _this4.toaster.hide();
+          _this4.speechController.startListeningForWakeword();
+        });
       }).catch(function (res) {
         console.error('Saving the reminder failed.', res);
         var message = 'This reminder could not be saved. ' + 'Please try again later.';
         _this4.toaster.warning(message);
-        _this4.speechController.speak(message);
+        _this4.speechController.speak(message).then(function () {
+          _this4.toaster.hide();
+          _this4.speechController.startListeningForWakeword();
+        });
       });
     };
 
     Reminders.prototype.onParsingFailure = function onParsingFailure() {
+      var _this5 = this;
+
+      this.microphone.stopListeningToSpeech();
+
       var message = 'I did not understand that. Can you repeat?';
       this.toaster.warning(message);
-      this.speechController.speak(message);
+      this.speechController.speak(message).then(function () {
+        console.log('Utterance terminated.');
+        _this5.toaster.hide();
+        _this5.speechController.startListeningForWakeword();
+      });
     };
 
     Reminders.prototype.onWebPushMessage = function onWebPushMessage(message) {
@@ -745,13 +908,19 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Reminders.prototype.render = function render() {
-      var _this5 = this;
+      var _this6 = this;
 
       return jsx('section', {
         className: 'reminders'
       }, void 0, React.createElement(Toaster, { ref: function (t) {
-          return _this5.toaster = t;
-        } }), jsx(RemindersList, {
+          return _this6.toaster = t;
+        } }), jsx('div', {
+        className: 'microphone'
+      }, void 0, React.createElement(Microphone, { ref: function (t) {
+          return _this6.microphone = t;
+        },
+        speechController: this.speechController,
+        server: this.server })), jsx(RemindersList, {
         reminders: this.state.reminders,
         server: this.server,
         refreshReminders: this.refreshReminders
@@ -759,74 +928,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     };
 
     return Reminders;
-  }(React.Component);
-
-  var Microphone = function (_React$Component) {
-    inherits(Microphone, _React$Component);
-
-    function Microphone(props) {
-      classCallCheck(this, Microphone);
-
-      var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
-
-      _this.state = {
-        isListening: false
-      };
-
-      _this.speechController = props.speechController;
-      _this.server = props.server;
-      _this.bleep = new Audio();
-
-      _this.bleep.src = 'media/cue.wav';
-
-      _this.speechController.on('wakeheard', function () {
-        _this.bleep.pause();
-        _this.bleep.currentTime = 0;
-        _this.bleep.play();
-        _this.setState({ isListening: true });
-      });
-      _this.speechController.on('speechrecognitionstop', function () {
-        _this.setState({ isListening: false });
-      });
-
-      _this.click = _this.click.bind(_this);
-      return _this;
-    }
-
-    Microphone.prototype.click = function click() {
-      if (!this.state.isListening) {
-        this.bleep.pause();
-        this.bleep.currentTime = 0;
-        this.bleep.play();
-        this.setState({ isListening: true });
-        this.speechController.startSpeechRecognition();
-        return;
-      }
-
-      this.bleep.pause();
-      this.setState({ isListening: false });
-      this.speechController.stopSpeechRecognition();
-    };
-
-    Microphone.prototype.render = function render() {
-      if (!this.server.isLoggedIn) {
-        return null;
-      }
-
-      var className = this.state.isListening ? 'listening' : '';
-
-      return jsx('div', {
-        className: className,
-        onClick: this.click
-      }, void 0, jsx('div', {
-        className: 'microphone__background'
-      }), jsx('img', {
-        className: 'microphone__icon',
-        src: 'css/icons/microphone.svg'
-      }));
-    };
-
-    return Microphone;
   }(React.Component);
 
   var FullScreen = function (_React$Component) {
@@ -837,16 +938,52 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var _this = possibleConstructorReturn(this, _React$Component.call(this, props));
 
+      _this.state = {
+        isFullScreen: false
+      };
+
       _this.fullScreenEnabled = document.fullscreenEnabled || document.mozFullscreenEnabled || document.mozFullScreenEnabled || document.webkitFullscreenEnabled || document.msFullscreenEnabled;
 
+      _this.onFullScreenChange = _this.onFullScreenChange.bind(_this);
       _this.onFullScreen = _this.onFullScreen.bind(_this);
       return _this;
     }
 
-    FullScreen.prototype.onFullScreen = function onFullScreen() {
+    FullScreen.prototype.componentDidMount = function componentDidMount() {
       var _this2 = this;
 
-      if (this.isFullScreen) {
+      ['fullscreenchange', 'mozfullscreenchange', 'webkitfullscreenchange', 'MSFullscreenChange'].forEach(function (type) {
+        document.addEventListener(type, _this2.onFullScreenChange);
+      });
+    };
+
+    FullScreen.prototype.componentWillUnmount = function componentWillUnmount() {
+      var _this3 = this;
+
+      ['fullscreenchange', 'mozfullscreenchange', 'webkitfullscreenchange', 'MSFullscreenChange'].forEach(function (type) {
+        document.removeEventListener(type, _this3.onFullScreenChange);
+      });
+    };
+
+    FullScreen.prototype.onFullScreenChange = function onFullScreenChange() {
+      var isFullScreen = !!(document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+
+      this.setState({ isFullScreen });
+
+      if (!isFullScreen) {
+        return;
+      }
+
+      // If we're in fullscreen mode, let's try to lock the orientation.
+      if (screen && 'orientation' in screen && 'lock' in screen.orientation) {
+        screen.orientation.lock('landscape').catch(function () {
+          // Don't panic. We're probably just on desktop.
+        });
+      }
+    };
+
+    FullScreen.prototype.onFullScreen = function onFullScreen() {
+      if (this.state.isFullScreen) {
         return;
       }
 
@@ -863,25 +1000,10 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       } else if (target.webkitRequestFullscreen) {
         target.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
       }
-
-      ['fullscreenchange', 'mozfullscreenchange', 'webkitfullscreenchange', 'MSFullscreenChange'].forEach(function (type) {
-        document.addEventListener(type, function () {
-          if (!_this2.isFullScreen) {
-            return;
-          }
-
-          // If we're in fullscreen mode, let's try to lock the orientation.
-          if (screen && 'orientation' in screen && 'lock' in screen.orientation) {
-            screen.orientation.lock('landscape').catch(function () {
-              // Don't panic. We're probably just on desktop.
-            });
-          }
-        });
-      });
     };
 
     FullScreen.prototype.render = function render() {
-      if (!this.fullScreenEnabled || this.isFullScreen) {
+      if (!this.fullScreenEnabled || this.state.isFullScreen) {
         return null;
       }
 
@@ -891,12 +1013,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       }, void 0, 'Full screen');
     };
 
-    createClass(FullScreen, [{
-      key: 'isFullScreen',
-      get: function () {
-        return !!document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
-      }
-    }]);
     return FullScreen;
   }(React.Component);
 
@@ -913,11 +1029,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         speechController: this.speechController,
         server: this.server
       }), this.mountNode);
-
-      ReactDOM.render(React.createElement(Microphone, {
-        speechController: this.speechController,
-        server: this.server
-      }), document.querySelector('.microphone'));
 
       ReactDOM.render(React.createElement(FullScreen), document.querySelector('.full-screen'));
     };
@@ -1365,27 +1476,38 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      * Speak a text aloud.
      *
      * @param {string} text
+     * @return {Promise} A promise that resolves when the utterance is finished.
      */
 
 
     SpeechSynthesis.prototype.speak = function speak() {
+      var _this = this;
+
       var text = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      if (!text) {
-        return;
-      }
+      return new Promise(function (resolve, reject) {
+        if (!text) {
+          return resolve();
+        }
 
-      var utterance = new SpeechSynthesisUtterance(text);
+        var utterance = new SpeechSynthesisUtterance(text);
 
-      if (this[p$4.preferredVoice]) {
-        // Use a preferred voice if available.
-        utterance.voice = this[p$4.preferredVoice];
-      }
-      utterance.lang = 'en-GB';
-      utterance.pitch = VOICE_PITCH;
-      utterance.rate = VOICE_RATE;
+        if (_this[p$4.preferredVoice]) {
+          // Use a preferred voice if available.
+          utterance.voice = _this[p$4.preferredVoice];
+        }
+        utterance.lang = 'en-GB';
+        utterance.pitch = VOICE_PITCH;
+        utterance.rate = VOICE_RATE;
+        utterance.onend = function () {
+          resolve();
+        };
+        utterance.onerror = function () {
+          reject();
+        };
 
-      this[p$4.synthesis].speak(utterance);
+        _this[p$4.synthesis].speak(utterance);
+      });
     };
 
     /**
@@ -1593,17 +1715,23 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
     Confirmation.prototype[p$7.formatHoursAndMinutes] = function (date) {
       date = moment(date);
+      var format = void 0;
+
       if (date.minute() === 0) {
-        return date.format('h A'); // 7 PM
+        format = date.format('h A'); // 7 PM
       } else if (date.minute() === 15) {
-        return date.format('[quarter past] h A');
+        format = date.format('[quarter past] h A');
       } else if (date.minute() === 30) {
-        return date.format('[half past] h A');
+        format = date.format('[half past] h A');
       } else if (date.minute() === 45) {
         var nextHour = date.add(1, 'hour');
-        return nextHour.format('[quarter to] h A');
+        format = nextHour.format('[quarter to] h A');
+      } else {
+        format = date.format('h m A'); // 6 24 AM
       }
-      return date.format('h m A'); // 6 24 AM
+
+      // Some speech synthesisers pronounce "AM" as in "ham" (not "A. M.").
+      return format.replace(/ AM$/gi, ' A.M.').replace(/ PM$/gi, ' P.M.');
     };
 
     return Confirmation;
@@ -2062,7 +2190,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     idle: Symbol('idle'),
 
     // Methods
-    startListeningForWakeword: Symbol('startListeningForWakeword'),
     stopListeningForWakeword: Symbol('stopListeningForWakeword'),
     listenForUtterance: Symbol('listenForUtterance'),
     handleSpeechRecognitionEnd: Symbol('handleSpeechRecognitionEnd'),
@@ -2118,7 +2245,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     }
 
     SpeechController.prototype.start = function start() {
-      return this[p$1.startListeningForWakeword]();
+      return this.startListeningForWakeword();
     };
 
     SpeechController.prototype.startSpeechRecognition = function startSpeechRecognition() {
@@ -2126,31 +2253,31 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       this[p$1.idle] = false;
 
-      return this[p$1.stopListeningForWakeword]().then(this[p$1.listenForUtterance].bind(this)).then(this[p$1.handleSpeechRecognitionEnd].bind(this)).then(this[p$1.startListeningForWakeword].bind(this)).catch(function (err) {
+      return this[p$1.stopListeningForWakeword]().then(this[p$1.listenForUtterance].bind(this)).then(this[p$1.handleSpeechRecognitionEnd].bind(this)).catch(function (err) {
         console.log('startSpeechRecognition err', err);
         _this2.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4] });
-        _this2[p$1.startListeningForWakeword]();
       });
     };
 
     SpeechController.prototype.stopSpeechRecognition = function stopSpeechRecognition() {
-      return this[p$1.speechRecogniser].abort().then(this[p$1.startListeningForWakeword].bind(this));
+      return this[p$1.speechRecogniser].abort().then(this.startListeningForWakeword.bind(this));
     };
 
     /**
      * Speak a text aloud.
      *
      * @param {string} text
+     * @return {Promise} A promise that resolves when the utterance is finished.
      */
 
 
     SpeechController.prototype.speak = function speak() {
       var text = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      this[p$1.speechSynthesis].speak(text);
+      return this[p$1.speechSynthesis].speak(text);
     };
 
-    SpeechController.prototype[p$1.startListeningForWakeword] = function () {
+    SpeechController.prototype.startListeningForWakeword = function startListeningForWakeword() {
       this.emit(EVENT_INTERFACE[0], { type: EVENT_INTERFACE[0] });
       this[p$1.idle] = true;
 
