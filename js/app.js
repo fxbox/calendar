@@ -496,7 +496,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       _this.state = {
         display: false,
         id: null,
-        reminder: null,
+        recipients: null,
         action: null,
         due: null
       };
@@ -507,12 +507,54 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       _this.dueDateInput = null;
       _this.dueTimeInput = null;
 
+      _this.onKeyPress = _this.onKeyPress.bind(_this);
       _this.onChangeAction = _this.onChangeAction.bind(_this);
       _this.onChangeDue = _this.onChangeDue.bind(_this);
       _this.onSave = _this.onSave.bind(_this);
       _this.onClose = _this.onClose.bind(_this);
       return _this;
     }
+
+    EditDialog.prototype.componentDidMount = function componentDidMount() {
+      window.document.addEventListener('keydown', this.onKeyPress);
+    };
+
+    /**
+     * Circumvent a bug in Chrome for Android (tested in v.52 and v.53) where the
+     * date and time inputs value are not populated via the `value` attribute and
+     * must be set using the `value` property.
+     */
+
+
+    EditDialog.prototype.componentDidUpdate = function componentDidUpdate() {
+      if (!this.dueDateInput || !this.dueTimeInput) {
+        return;
+      }
+
+      var due = this.state.due;
+      var date = moment(due).format('YYYY-MM-DD');
+      var time = moment(due).format('HH:mm');
+
+      this.dueDateInput.value = date;
+      this.dueTimeInput.value = time;
+    };
+
+    EditDialog.prototype.componentWillUnmount = function componentWillUnmount() {
+      window.document.removeEventListener('keydown', this.onKeyPress);
+    };
+
+    EditDialog.prototype.onKeyPress = function onKeyPress(evt) {
+      var display = this.state.display;
+
+      if (!display) {
+        return;
+      }
+
+      var key = evt.key;
+      if (key === 'Escape') {
+        this.hide();
+      }
+    };
 
     EditDialog.prototype.onChangeAction = function onChangeAction(evt) {
       var action = evt.target.value.trim();
@@ -526,9 +568,14 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var date = this.dueDateInput.value.split('-');
       var time = this.dueTimeInput.value.split(':');
 
-      var dueMoment = moment().year(date[0]).month(date[1] - 1).date(date[2]).hour(time[0]).minute(time[1]).second(0);
-      var due = Number(dueMoment.toDate());
-      this.setState({ due });
+      try {
+        var dueMoment = moment().year(date[0]).month(date[1] - 1).date(date[2]).hour(time[0]).minute(time[1]);
+
+        var due = Number(dueMoment.toDate());
+        this.setState({ due });
+      } catch (err) {
+        console.error('Could not parse the input due date and time.');
+      }
     };
 
     EditDialog.prototype.onSave = function onSave() {
@@ -573,14 +620,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     EditDialog.prototype.render = function render() {
       var _this3 = this;
 
-      var due = moment(this.state.due);
-
       if (!this.state.display) {
         return null;
       }
 
       return jsx('div', {}, void 0, jsx('div', {
-        className: 'dialog-overlay'
+        className: 'dialog-overlay',
+        onClick: this.onClose
       }), jsx('div', {
         className: 'dialog'
       }, void 0, jsx('div', {
@@ -606,13 +652,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         className: 'dialog-content__section'
       }, void 0, jsx('h4', {}, void 0, 'Due time'), React.createElement('input', { className: 'dialog-content__input dialog-content__half',
         type: 'date',
-        value: due.format('YYYY-MM-DD'),
+        placeholder: 'YYYY-MM-DD',
         onChange: this.onChangeDue,
         ref: function (t) {
           return _this3.dueDateInput = t;
         } }), React.createElement('input', { className: 'dialog-content__input dialog-content__half',
         type: 'time',
-        value: due.format('HH:mm'),
+        placeholder: 'HH:mm',
         onChange: this.onChangeDue,
         ref: function (t) {
           return _this3.dueTimeInput = t;
@@ -1815,7 +1861,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return results;
 
     function changeDate(component, ref) {
-      if (!component.isCertain('meridiem') && component.get('year') === ref.getFullYear() && component.get('month') === ref.getMonth() + 1 && component.get('day') === ref.getDate() && component.get('hour') < ref.getHours()) {
+      if (!component.isCertain('meridiem') && component.moment(ref).isSame(component, 'day') && component.get('hour') <= ref.getHours()) {
         component.assign('meridiem', 1);
         component.assign('hour', component.get('hour') + 12);
       }
