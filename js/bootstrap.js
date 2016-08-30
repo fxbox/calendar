@@ -17,7 +17,7 @@ define(function () { 'use strict';
     polyfills.push('polyfills/fetch');
   }
 
-  polyfills.push('polyfills/webrtc-adapter');
+  //polyfills.push('polyfills/webrtc-adapter');
 
   var polyfillsPromise = polyfills.length ? require(polyfills) : Promise.resolve();
   polyfillsPromise.then(function () {

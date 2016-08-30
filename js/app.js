@@ -108,6 +108,485 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     }
   };
 
+  /*
+   * This file provides an helper to add custom events to any object.
+   *
+   * In order to use this functionality with any object consumer should extend
+   * target object class with EventDispatcher:
+   *
+   * class Obj extends EventDispatcher {}
+   * const obj = new Obj();
+   *
+   * A list of events can be optionally provided and it is recommended to do so.
+   * If a list is provided then only the events present in the list will be
+   * allowed. Using events not present in the list will cause other functions to
+   * throw an error:
+   *
+   * class Obj extends EventDispatcher {
+   *   constructor() {
+   *     super(['somethinghappened', 'somethingelsehappened']);
+   *   }
+   * }
+   * const obj = new Obj();
+   *
+   * The object will have five new methods: 'on', 'once', 'off', 'offAll' and
+   * 'emit'. Use 'on' to register a new event-handler:
+   *
+   * obj.on("somethinghappened", function onSomethingHappened() { ... });
+   *
+   * If the same event-handler is added multiple times then only one will be
+   * registered, e.g.:
+   *
+   * function onSomethingHappened() { ... }
+   * obj.on("somethinghappened", onSomethingHappened);
+   * obj.on("somethinghappened", onSomethingHappened); // Does nothing
+   *
+   * Use 'off' to remove a registered listener:
+   *
+   * obj.off("somethinghappened", onSomethingHappened);
+   *
+   * Use 'once' to register a one-time event-handler: it will be automatically
+   * unregistered after being called.
+   *
+   * obj.once("somethinghappened", function onSomethingHappened() { ... });
+   *
+   * And use 'offAll' to remove all registered event listeners for the specified
+   * event:
+   *
+   * obj.offAll("somethinghappened");
+   *
+   * When used without parameters 'offAll' removes all registered event handlers,
+   * this can be useful when writing unit-tests.
+   *
+   * Finally use 'emit' to send an event to the registered handlers:
+   *
+   * obj.emit("somethinghappened");
+   *
+   * An optional parameter can be passed to 'emit' to be passed to the registered
+   * handlers:
+   *
+   * obj.emit("somethinghappened", 123);
+   */
+
+  var assertValidEventName = function (eventName) {
+    if (!eventName || typeof eventName !== 'string') {
+      throw new Error('Event name should be a valid non-empty string!');
+    }
+  };
+
+  var assertValidHandler = function (handler) {
+    if (typeof handler !== 'function') {
+      throw new Error('Handler should be a function!');
+    }
+  };
+
+  var assertAllowedEventName = function (allowedEvents, eventName) {
+    if (allowedEvents && allowedEvents.indexOf(eventName) < 0) {
+      throw new Error(`Event "${ eventName }" is not allowed!`);
+    }
+  };
+
+  var p$1 = Object.freeze({
+    allowedEvents: Symbol('allowedEvents'),
+    listeners: Symbol('listeners')
+  });
+
+  var EventDispatcher = function () {
+    function EventDispatcher(allowedEvents) {
+      classCallCheck(this, EventDispatcher);
+
+      if (typeof allowedEvents !== 'undefined' && !Array.isArray(allowedEvents)) {
+        throw new Error('Allowed events should be a valid array of strings!');
+      }
+
+      this[p$1.listeners] = new Map();
+      this[p$1.allowedEvents] = allowedEvents;
+    }
+
+    /**
+     * Registers listener function to be executed once event occurs.
+     *
+     * @param {string} eventName Name of the event to listen for.
+     * @param {function} handler Handler to be executed once event occurs.
+     */
+
+
+    EventDispatcher.prototype.on = function on(eventName, handler) {
+      assertValidEventName(eventName);
+      assertAllowedEventName(this[p$1.allowedEvents], eventName);
+      assertValidHandler(handler);
+
+      var handlers = this[p$1.listeners].get(eventName);
+      if (!handlers) {
+        handlers = new Set();
+        this[p$1.listeners].set(eventName, handlers);
+      }
+
+      // Set.add ignores handler if it has been already registered.
+      handlers.add(handler);
+    };
+
+    /**
+     * Registers listener function to be executed only first time when event
+     * occurs.
+     *
+     * @param {string} eventName Name of the event to listen for.
+     * @param {function} handler Handler to be executed once event occurs.
+     */
+
+
+    EventDispatcher.prototype.once = function once(eventName, handler) {
+      var _this = this;
+
+      assertValidHandler(handler);
+
+      var once = function (parameters) {
+        _this.off(eventName, once);
+
+        handler.call(_this, parameters);
+      };
+
+      this.on(eventName, once);
+    };
+
+    /**
+     * Removes registered listener for the specified event.
+     *
+     * @param {string} eventName Name of the event to remove listener for.
+     * @param {function} handler Handler to remove, so it won't be executed
+     * next time event occurs.
+     */
+
+
+    EventDispatcher.prototype.off = function off(eventName, handler) {
+      assertValidEventName(eventName);
+      assertAllowedEventName(this[p$1.allowedEvents], eventName);
+      assertValidHandler(handler);
+
+      var handlers = this[p$1.listeners].get(eventName);
+      if (!handlers) {
+        return;
+      }
+
+      handlers.delete(handler);
+
+      if (!handlers.size) {
+        this[p$1.listeners].delete(eventName);
+      }
+    };
+
+    /**
+     * Removes all registered listeners for the specified event.
+     *
+     * @param {string=} eventName Name of the event to remove all listeners for.
+     */
+
+
+    EventDispatcher.prototype.offAll = function offAll(eventName) {
+      if (typeof eventName === 'undefined') {
+        this[p$1.listeners].clear();
+        return;
+      }
+
+      assertValidEventName(eventName);
+      assertAllowedEventName(this[p$1.allowedEvents], eventName);
+
+      var handlers = this[p$1.listeners].get(eventName);
+      if (!handlers) {
+        return;
+      }
+
+      handlers.clear();
+
+      this[p$1.listeners].delete(eventName);
+    };
+
+    /**
+     * Emits specified event so that all registered handlers will be called
+     * with the specified parameters.
+     *
+     * @param {string} eventName Name of the event to call handlers for.
+     * @param {Object=} parameters Optional parameters that will be passed to
+     * every registered handler.
+     */
+
+
+    EventDispatcher.prototype.emit = function emit(eventName, parameters) {
+      var _this2 = this;
+
+      assertValidEventName(eventName);
+      assertAllowedEventName(this[p$1.allowedEvents], eventName);
+
+      var handlers = this[p$1.listeners].get(eventName);
+      if (!handlers) {
+        return;
+      }
+
+      handlers.forEach(function (handler) {
+        try {
+          handler.call(_this2, parameters);
+        } catch (error) {
+          console.error(error);
+        }
+      });
+    };
+
+    /**
+     * Checks if there are any listeners that listen for the specified event.
+     *
+     * @param {string} eventName Name of the event to check listeners for.
+     * @returns {boolean}
+     */
+
+
+    EventDispatcher.prototype.hasListeners = function hasListeners(eventName) {
+      assertValidEventName(eventName);
+      assertAllowedEventName(this[p$1.allowedEvents], eventName);
+
+      return this[p$1.listeners].has(eventName);
+    };
+
+    return EventDispatcher;
+  }();
+
+  // Prefix all entries to avoid collisions.
+  var PREFIX = 'cue-';
+
+  var ORIGIN = 'https://calendar.knilxof.org';
+
+  /**
+   * API version to use (currently not configurable).
+   * @type {number}
+   * @const
+   */
+  var API_VERSION = 1;
+
+  /**
+   * Regex to match upper case literals.
+   * @type {RegExp}
+   * @const
+   */
+  var UPPER_CASE_REGEX = /([A-Z])/g;
+
+  var p = Object.freeze({
+    values: Symbol('values'),
+    storage: Symbol('storage'),
+
+    // Private methods.
+    updateSetting: Symbol('updateSetting'),
+    stringToSettingTypedValue: Symbol('stringToSettingTypedValue'),
+    getDefaultSettingValue: Symbol('getDefaultSettingValue'),
+    onStorage: Symbol('onStorage')
+  });
+
+  // Definition of all available settings and their default values (if needed).
+  var settings = Object.freeze({
+    // String settings.
+    SESSION: Object.freeze({ key: 'session' }),
+    IS_HUB: Object.freeze({ key: 'isHub', type: 'boolean' }),
+    GA_CLIENT_ID: Object.freeze({ key: 'gaClientID' })
+  });
+
+  var Settings = function (_EventDispatcher) {
+    inherits(Settings, _EventDispatcher);
+
+    function Settings() {
+      var storage = arguments.length <= 0 || arguments[0] === undefined ? localStorage : arguments[0];
+      classCallCheck(this, Settings);
+
+      // Not all browsers have localStorage supported or activated.
+      var _this = possibleConstructorReturn(this, _EventDispatcher.call(this));
+
+      _this[p.storage] = storage || {
+        getItem: function () {
+          return null;
+        },
+        setItem: function () {},
+        removeItem: function () {},
+        clear: function () {}
+      };
+
+      _this[p.values] = new Map();
+
+      Object.keys(settings).forEach(function (settingName) {
+        var setting = settings[settingName];
+        var settingStringValue = _this[p.storage].getItem(`${ PREFIX }${ setting.key }`);
+
+        // Setting values directly to avoid firing events on startup.
+        _this[p.values].set(setting, _this[p.stringToSettingTypedValue](setting, settingStringValue));
+      });
+
+      window.addEventListener('storage', _this[p.onStorage].bind(_this));
+
+      Object.seal(_this);
+      return _this;
+    }
+
+    /**
+     * Iterates through all known settings and sets default value for all of them.
+     *
+     * @return {Promise}
+     */
+    Settings.prototype.clear = function clear() {
+      var _this2 = this;
+
+      return new Promise(function (resolve) {
+        Object.keys(settings).forEach(function (settingName) {
+          var setting = settings[settingName];
+          _this2[p.updateSetting](setting, _this2[p.getDefaultSettingValue](setting));
+        });
+        resolve();
+      });
+    };
+
+    /**
+     * Tries to update setting with new value. If value has changed corresponding
+     * event will be emitted. New value is also persisted to the local storage.
+     *
+     * @param {Object} setting Setting description object.
+     * @param {number|boolean|string?} newValue New value for specified setting.
+     * @private
+     */
+
+
+    Settings.prototype[p.updateSetting] = function (setting, newValue) {
+      var currentValue = this[p.values].get(setting);
+      if (currentValue === newValue) {
+        return;
+      }
+
+      this[p.values].set(setting, newValue);
+
+      if (newValue !== this[p.getDefaultSettingValue](setting)) {
+        this[p.storage].setItem(`${ PREFIX }${ setting.key }`, newValue);
+      } else {
+        this[p.storage].removeItem(`${ PREFIX }${ setting.key }`);
+      }
+
+      this.emit(setting.key.replace(UPPER_CASE_REGEX, function (part) {
+        return `-${ part.toLowerCase() }`;
+      }), newValue);
+    };
+
+    /**
+     * Converts setting raw string value to the typed one depending on the setting
+     * type.
+     *
+     * @param {Object} setting Setting description object.
+     * @param {string?} stringValue Raw string setting value or null.
+     * @return {number|boolean|string|null}
+     * @private
+     */
+
+
+    Settings.prototype[p.stringToSettingTypedValue] = function (setting, stringValue) {
+      // If string is null, we should return default value for this setting or
+      // default value for setting type.
+      if (stringValue === null) {
+        return this[p.getDefaultSettingValue](setting);
+      } else if (setting.type === 'boolean') {
+        return stringValue === 'true';
+      } else if (setting.type === 'number') {
+        return Number(stringValue);
+      }
+
+      return stringValue;
+    };
+
+    /**
+     * Gets default typed value for the specified setting.
+     *
+     * @param {Object} setting Setting description object.
+     * @return {number|boolean|string|null}
+     * @private
+     */
+
+
+    Settings.prototype[p.getDefaultSettingValue] = function (setting) {
+      if (setting.defaultValue !== undefined) {
+        return setting.defaultValue;
+      }
+
+      // Default value for this setting is not specified, let's return default
+      // value for setting type (boolean, number or string).
+      if (setting.type === 'boolean') {
+        return false;
+      } else if (setting.type === 'number') {
+        return 0;
+      }
+
+      return null;
+    };
+
+    /**
+     * Handles localStorage "storage" event.
+     *
+     * @param {StorageEvent} evt StorageEvent instance.
+     * @private
+     */
+
+
+    Settings.prototype[p.onStorage] = function (evt) {
+      if (!evt.key.startsWith(PREFIX)) {
+        return;
+      }
+
+      var key = evt.key.substring(PREFIX.length);
+      var settingName = Object.keys(settings).find(function (settingName) {
+        return settings[settingName].key === key;
+      });
+
+      if (!settingName) {
+        console.warn(`Changed unknown storage entry with app specific prefix: ${ evt.key }`);
+        return;
+      }
+
+      var setting = settings[settingName];
+
+      this[p.updateSetting](setting, this[p.stringToSettingTypedValue](setting, evt.newValue));
+    };
+
+    createClass(Settings, [{
+      key: 'session',
+      get: function () {
+        return this[p.values].get(settings.SESSION);
+      },
+      set: function (value) {
+        this[p.updateSetting](settings.SESSION, value);
+      }
+    }, {
+      key: 'isHub',
+      get: function () {
+        return this[p.values].get(settings.IS_HUB);
+      },
+      set: function (value) {
+        this[p.updateSetting](settings.IS_HUB, value);
+      }
+    }, {
+      key: 'gaClientID',
+      get: function () {
+        return this[p.values].get(settings.GA_CLIENT_ID);
+      },
+      set: function (value) {
+        this[p.updateSetting](settings.GA_CLIENT_ID, value);
+      }
+
+      // Getters only.
+
+    }, {
+      key: 'origin',
+      get: function () {
+        return ORIGIN;
+      }
+    }, {
+      key: 'apiVersion',
+      get: function () {
+        return API_VERSION;
+      }
+    }]);
+    return Settings;
+  }(EventDispatcher);
+
   var BaseController = function () {
     function BaseController(properties) {
       classCallCheck(this, BaseController);
@@ -121,6 +600,58 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
     return BaseController;
   }();
+
+  var Analytics = function (_BaseController) {
+    inherits(Analytics, _BaseController);
+
+    function Analytics(props) {
+      classCallCheck(this, Analytics);
+
+      // Creates an initial ga() function.
+      // The queued commands will be executed once analytics.js loads.
+      var _this = possibleConstructorReturn(this, _BaseController.call(this, props));
+
+      window.ga = window.ga || function () {
+        (ga.q = ga.q || []).push(arguments);
+      };
+
+      // Sets the time (as an integer) this tag was executed.
+      // Used for timing hits.
+      ga.l = Date.now();
+
+      // Creates a default tracker.
+      ga('create', 'UA-83150540-1', {
+        'siteSpeedSampleRate': 100,
+        'forceSSL': true,
+        'dataSource': 'app', // Rather than web.
+        'appName': 'Project Cue',
+
+        // Disabling cookies.
+        // @see https://developers.google.com/analytics/devguides/collection/
+        //    analyticsjs/cookies-user-id#disabling_cookies
+        'storage': 'none',
+        'clientId': _this.settings.gaClientID
+      });
+
+      // Using localStorage to store the client ID.
+      // @see https://developers.google.com/analytics/devguides/collection/
+      //    analyticsjs/cookies-user-id#using_localstorage_to_store_the_client_id
+      ga(function (tracker) {
+        _this.settings.gaClientID = tracker.get('clientId');
+      });
+
+      // Sends a pageview hit from the tracker just created.
+      ga('send', 'pageview');
+
+      // Track the installation of the app using the W3C app manifest.
+      window.addEventListener('install', function () {
+        ga('send', 'event', 'App', 'install');
+      });
+      return _this;
+    }
+
+    return Analytics;
+  }(BaseController);
 
   var UserLogin = function (_React$Component) {
     inherits(UserLogin, _React$Component);
@@ -417,7 +948,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return Microphone;
   }(React.Component);
 
-  var COLOURS = ['red', 'orange', 'green', 'blue', 'violet'];
+  var COLOURS = ['red', 'salmon', 'goldenrod', 'orange', 'green', 'cyan', 'blue', 'violet', 'slategrey', 'grey'];
 
   var ReminderItem = function (_React$Component) {
     inherits(ReminderItem, _React$Component);
@@ -437,9 +968,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     }
 
     ReminderItem.prototype.getColour = function getColour() {
-      var recipients = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
+      var name = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      var name = recipients.join(' ');
       var hash = function (string) {
         var hash = 0,
             i = void 0,
@@ -461,7 +991,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
     ReminderItem.prototype.render = function render() {
       var reminder = this.reminder;
-      var contentClassName = ['reminders__item-content', this.getColour(reminder.recipients)].join(' ');
+      var recipients = this.listFormatter.format(reminder.recipients);
+      var contentClassName = ['reminders__item-content', this.getColour(recipients)].join(' ');
 
       return jsx('li', {
         className: 'reminders__item'
@@ -471,7 +1002,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         className: contentClassName
       }, void 0, jsx('h3', {
         className: 'reminders__item-recipient'
-      }, void 0, this.listFormatter.format(reminder.recipients)), jsx('p', {
+      }, void 0, recipients), jsx('p', {
         className: 'reminders__item-text'
       }, void 0, reminder.action, jsx('button', {
         className: 'reminders__button reminders__edit',
@@ -1082,247 +1613,6 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return RemindersController;
   }(BaseController);
 
-  /*
-   * This file provides an helper to add custom events to any object.
-   *
-   * In order to use this functionality with any object consumer should extend
-   * target object class with EventDispatcher:
-   *
-   * class Obj extends EventDispatcher {}
-   * const obj = new Obj();
-   *
-   * A list of events can be optionally provided and it is recommended to do so.
-   * If a list is provided then only the events present in the list will be
-   * allowed. Using events not present in the list will cause other functions to
-   * throw an error:
-   *
-   * class Obj extends EventDispatcher {
-   *   constructor() {
-   *     super(['somethinghappened', 'somethingelsehappened']);
-   *   }
-   * }
-   * const obj = new Obj();
-   *
-   * The object will have five new methods: 'on', 'once', 'off', 'offAll' and
-   * 'emit'. Use 'on' to register a new event-handler:
-   *
-   * obj.on("somethinghappened", function onSomethingHappened() { ... });
-   *
-   * If the same event-handler is added multiple times then only one will be
-   * registered, e.g.:
-   *
-   * function onSomethingHappened() { ... }
-   * obj.on("somethinghappened", onSomethingHappened);
-   * obj.on("somethinghappened", onSomethingHappened); // Does nothing
-   *
-   * Use 'off' to remove a registered listener:
-   *
-   * obj.off("somethinghappened", onSomethingHappened);
-   *
-   * Use 'once' to register a one-time event-handler: it will be automatically
-   * unregistered after being called.
-   *
-   * obj.once("somethinghappened", function onSomethingHappened() { ... });
-   *
-   * And use 'offAll' to remove all registered event listeners for the specified
-   * event:
-   *
-   * obj.offAll("somethinghappened");
-   *
-   * When used without parameters 'offAll' removes all registered event handlers,
-   * this can be useful when writing unit-tests.
-   *
-   * Finally use 'emit' to send an event to the registered handlers:
-   *
-   * obj.emit("somethinghappened");
-   *
-   * An optional parameter can be passed to 'emit' to be passed to the registered
-   * handlers:
-   *
-   * obj.emit("somethinghappened", 123);
-   */
-
-  var assertValidEventName = function (eventName) {
-    if (!eventName || typeof eventName !== 'string') {
-      throw new Error('Event name should be a valid non-empty string!');
-    }
-  };
-
-  var assertValidHandler = function (handler) {
-    if (typeof handler !== 'function') {
-      throw new Error('Handler should be a function!');
-    }
-  };
-
-  var assertAllowedEventName = function (allowedEvents, eventName) {
-    if (allowedEvents && allowedEvents.indexOf(eventName) < 0) {
-      throw new Error(`Event "${ eventName }" is not allowed!`);
-    }
-  };
-
-  var p$2 = Object.freeze({
-    allowedEvents: Symbol('allowedEvents'),
-    listeners: Symbol('listeners')
-  });
-
-  var EventDispatcher = function () {
-    function EventDispatcher(allowedEvents) {
-      classCallCheck(this, EventDispatcher);
-
-      if (typeof allowedEvents !== 'undefined' && !Array.isArray(allowedEvents)) {
-        throw new Error('Allowed events should be a valid array of strings!');
-      }
-
-      this[p$2.listeners] = new Map();
-      this[p$2.allowedEvents] = allowedEvents;
-    }
-
-    /**
-     * Registers listener function to be executed once event occurs.
-     *
-     * @param {string} eventName Name of the event to listen for.
-     * @param {function} handler Handler to be executed once event occurs.
-     */
-
-
-    EventDispatcher.prototype.on = function on(eventName, handler) {
-      assertValidEventName(eventName);
-      assertAllowedEventName(this[p$2.allowedEvents], eventName);
-      assertValidHandler(handler);
-
-      var handlers = this[p$2.listeners].get(eventName);
-      if (!handlers) {
-        handlers = new Set();
-        this[p$2.listeners].set(eventName, handlers);
-      }
-
-      // Set.add ignores handler if it has been already registered.
-      handlers.add(handler);
-    };
-
-    /**
-     * Registers listener function to be executed only first time when event
-     * occurs.
-     *
-     * @param {string} eventName Name of the event to listen for.
-     * @param {function} handler Handler to be executed once event occurs.
-     */
-
-
-    EventDispatcher.prototype.once = function once(eventName, handler) {
-      var _this = this;
-
-      assertValidHandler(handler);
-
-      var once = function (parameters) {
-        _this.off(eventName, once);
-
-        handler.call(_this, parameters);
-      };
-
-      this.on(eventName, once);
-    };
-
-    /**
-     * Removes registered listener for the specified event.
-     *
-     * @param {string} eventName Name of the event to remove listener for.
-     * @param {function} handler Handler to remove, so it won't be executed
-     * next time event occurs.
-     */
-
-
-    EventDispatcher.prototype.off = function off(eventName, handler) {
-      assertValidEventName(eventName);
-      assertAllowedEventName(this[p$2.allowedEvents], eventName);
-      assertValidHandler(handler);
-
-      var handlers = this[p$2.listeners].get(eventName);
-      if (!handlers) {
-        return;
-      }
-
-      handlers.delete(handler);
-
-      if (!handlers.size) {
-        this[p$2.listeners].delete(eventName);
-      }
-    };
-
-    /**
-     * Removes all registered listeners for the specified event.
-     *
-     * @param {string=} eventName Name of the event to remove all listeners for.
-     */
-
-
-    EventDispatcher.prototype.offAll = function offAll(eventName) {
-      if (typeof eventName === 'undefined') {
-        this[p$2.listeners].clear();
-        return;
-      }
-
-      assertValidEventName(eventName);
-      assertAllowedEventName(this[p$2.allowedEvents], eventName);
-
-      var handlers = this[p$2.listeners].get(eventName);
-      if (!handlers) {
-        return;
-      }
-
-      handlers.clear();
-
-      this[p$2.listeners].delete(eventName);
-    };
-
-    /**
-     * Emits specified event so that all registered handlers will be called
-     * with the specified parameters.
-     *
-     * @param {string} eventName Name of the event to call handlers for.
-     * @param {Object=} parameters Optional parameters that will be passed to
-     * every registered handler.
-     */
-
-
-    EventDispatcher.prototype.emit = function emit(eventName, parameters) {
-      var _this2 = this;
-
-      assertValidEventName(eventName);
-      assertAllowedEventName(this[p$2.allowedEvents], eventName);
-
-      var handlers = this[p$2.listeners].get(eventName);
-      if (!handlers) {
-        return;
-      }
-
-      handlers.forEach(function (handler) {
-        try {
-          handler.call(_this2, parameters);
-        } catch (error) {
-          console.error(error);
-        }
-      });
-    };
-
-    /**
-     * Checks if there are any listeners that listen for the specified event.
-     *
-     * @param {string} eventName Name of the event to check listeners for.
-     * @returns {boolean}
-     */
-
-
-    EventDispatcher.prototype.hasListeners = function hasListeners(eventName) {
-      assertValidEventName(eventName);
-      assertAllowedEventName(this[p$2.allowedEvents], eventName);
-
-      return this[p$2.listeners].has(eventName);
-    };
-
-    return EventDispatcher;
-  }();
-
   var WakeWordRecogniser = function () {
     function WakeWordRecogniser() {
       var _this = this;
@@ -1390,7 +1680,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return WakeWordRecogniser;
   }();
 
-  var p$3 = Object.freeze({
+  var p$4 = Object.freeze({
     isListening: Symbol('isListening'),
     recognition: Symbol('recognition'),
     supportsRecognition: Symbol('supportsRecognition')
@@ -1400,21 +1690,21 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     function SpeechRecogniser() {
       classCallCheck(this, SpeechRecogniser);
 
-      this[p$3.isListening] = false;
+      this[p$4.isListening] = false;
 
       var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
       var supportsRecognition = !!Recognition;
 
-      this[p$3.supportsRecognition] = supportsRecognition;
+      this[p$4.supportsRecognition] = supportsRecognition;
 
       if (supportsRecognition) {
-        this[p$3.recognition] = new Recognition();
+        this[p$4.recognition] = new Recognition();
         // Continuous mode prevents Android from being stuck for 5 seconds between
         // the last word said and the results to come in.
-        this[p$3.recognition].continuous = true;
+        this[p$4.recognition].continuous = true;
       } else {
-        this[p$3.recognition] = null;
+        this[p$4.recognition] = null;
       }
 
       Object.seal(this);
@@ -1423,26 +1713,26 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     SpeechRecogniser.prototype.listenForUtterance = function listenForUtterance() {
       var _this = this;
 
-      if (!this[p$3.supportsRecognition]) {
+      if (!this[p$4.supportsRecognition]) {
         return Promise.reject(new Error('Speech recognition not supported in this browser'));
       }
 
-      if (this[p$3.isListening]) {
+      if (this[p$4.isListening]) {
         return Promise.reject(new Error('Speech recognition is already listening'));
       }
 
       return new Promise(function (resolve, reject) {
-        _this[p$3.isListening] = true;
+        _this[p$4.isListening] = true;
 
         // Not using `addEventListener` here to avoid
         // `removeEventListener` everytime it's simpler
         // to just redefine `onresult` to the same effect.
-        _this[p$3.recognition].onresult = function (event) {
+        _this[p$4.recognition].onresult = function (event) {
           // Due to continuous mode, many results may arrive. We choose to only
           // return the first result and to forget about the following ones.
-          if (_this[p$3.isListening]) {
-            _this[p$3.recognition].stop();
-            _this[p$3.isListening] = false;
+          if (_this[p$4.isListening]) {
+            _this[p$4.recognition].stop();
+            _this[p$4.isListening] = false;
 
             // Always take first result
             var result = event.results[0][0];
@@ -1454,13 +1744,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           }
         };
 
-        _this[p$3.recognition].onerror = function (error) {
-          _this[p$3.recognition].stop();
-          _this[p$3.isListening] = false;
+        _this[p$4.recognition].onerror = function (error) {
+          _this[p$4.recognition].stop();
+          _this[p$4.isListening] = false;
           return reject(error);
         };
 
-        _this[p$3.recognition].start();
+        _this[p$4.recognition].start();
       });
     };
 
@@ -1474,8 +1764,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       // Using stop() sends data to STT servers but we will get errors like
       // SpeechRecognitionError (code "no-speech") or if something was heard, the
       // pattern won't be matched.
-      this[p$3.recognition].stop();
-      this[p$3.isListening] = false;
+      this[p$4.recognition].stop();
+      this[p$4.isListening] = false;
 
       return Promise.resolve();
     };
@@ -1483,7 +1773,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return SpeechRecogniser;
   }();
 
-  var p$4 = Object.freeze({
+  var p$5 = Object.freeze({
     // Properties
     synthesis: Symbol('synthesis'),
     supportsSynthesis: Symbol('supportsSynthesis'),
@@ -1503,16 +1793,16 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var synthesis = window.speechSynthesis;
 
-      this[p$4.initialised] = false;
-      this[p$4.supportsSynthesis] = !!synthesis;
-      this[p$4.preferredVoice] = null;
+      this[p$5.initialised] = false;
+      this[p$5.supportsSynthesis] = !!synthesis;
+      this[p$5.preferredVoice] = null;
 
-      if (this[p$4.supportsSynthesis]) {
-        this[p$4.synthesis] = synthesis;
-        this[p$4.setPreferredVoice]();
-        this[p$4.synthesis].onvoiceschanged = this[p$4.setPreferredVoice].bind(this);
+      if (this[p$5.supportsSynthesis]) {
+        this[p$5.synthesis] = synthesis;
+        this[p$5.setPreferredVoice]();
+        this[p$5.synthesis].onvoiceschanged = this[p$5.setPreferredVoice].bind(this);
       } else {
-        this[p$4.synthesis] = null;
+        this[p$5.synthesis] = null;
       }
 
       Object.seal(this);
@@ -1538,9 +1828,9 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
         var utterance = new SpeechSynthesisUtterance(text);
 
-        if (_this[p$4.preferredVoice]) {
+        if (_this[p$5.preferredVoice]) {
           // Use a preferred voice if available.
-          utterance.voice = _this[p$4.preferredVoice];
+          utterance.voice = _this[p$5.preferredVoice];
         }
         utterance.lang = 'en-GB';
         utterance.pitch = VOICE_PITCH;
@@ -1552,7 +1842,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           reject();
         };
 
-        _this[p$4.synthesis].speak(utterance);
+        _this[p$5.synthesis].speak(utterance);
       });
     };
 
@@ -1562,12 +1852,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    SpeechSynthesis.prototype[p$4.setPreferredVoice] = function () {
-      if (this[p$4.initialised]) {
+    SpeechSynthesis.prototype[p$5.setPreferredVoice] = function () {
+      if (this[p$5.initialised]) {
         return;
       }
 
-      var voices = this[p$4.synthesis].getVoices();
+      var voices = this[p$5.synthesis].getVoices();
 
       if (!voices.length) {
         return;
@@ -1582,13 +1872,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       });
 
       if (femaleVoices.length) {
-        this[p$4.preferredVoice] = femaleVoices[0];
+        this[p$5.preferredVoice] = femaleVoices[0];
       } else if (englishVoices.length) {
-        this[p$4.preferredVoice] = englishVoices[0];
+        this[p$5.preferredVoice] = englishVoices[0];
       }
 
-      this[p$4.initialised] = true;
-      this[p$4.synthesis].onvoiceschanged = null;
+      this[p$5.initialised] = true;
+      this[p$5.synthesis].onvoiceschanged = null;
     };
 
     return SpeechSynthesis;
@@ -1600,7 +1890,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
    *     for formatting the time of the day.
    */
 
-  var p$7 = Object.freeze({
+  var p$8 = Object.freeze({
     // Properties
     listFormatter: Symbol('listFormatter'),
 
@@ -1646,7 +1936,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       TwitterCldr.set_data(TwitterCldrDataBundle);
 
-      this[p$7.listFormatter] = new TwitterCldr.ListFormatter();
+      this[p$8.listFormatter] = new TwitterCldr.ListFormatter();
     }
 
     /**
@@ -1658,11 +1948,11 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Confirmation.prototype.getReminderMessage = function getReminderMessage(reminder) {
-      var template = this[p$7.getLocalised]('template');
+      var template = this[p$8.getLocalised]('template');
       var data = {
-        users: this[p$7.formatUser](reminder),
-        action: this[p$7.formatAction](reminder),
-        time: this[p$7.formatTime](reminder)
+        users: this[p$8.formatUser](reminder),
+        action: this[p$8.formatAction](reminder),
+        time: this[p$8.formatTime](reminder)
       };
 
       return template.replace(/\[([^\]]+)\]/g, function (match, placeholder) {
@@ -1679,7 +1969,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Confirmation.prototype[p$7.getLocalised] = function (prop) {
+    Confirmation.prototype[p$8.getLocalised] = function (prop) {
       var locale = this.locale;
       if (!PATTERNS$1[this.locale] || !PATTERNS$1[this.locale][prop]) {
         locale = DEFAULT_LOCALE;
@@ -1688,18 +1978,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return PATTERNS$1[locale][prop];
     };
 
-    Confirmation.prototype[p$7.formatUser] = function (reminder) {
+    Confirmation.prototype[p$8.formatUser] = function (reminder) {
       var recipients = reminder.recipients;
 
-      var formatUser = this[p$7.getLocalised]('formatUser');
+      var formatUser = this[p$8.getLocalised]('formatUser');
       var formattedRecipients = recipients.map(formatUser);
-      return this[p$7.listFormatter].format(formattedRecipients);
+      return this[p$8.listFormatter].format(formattedRecipients);
     };
 
-    Confirmation.prototype[p$7.formatAction] = function (reminder) {
+    Confirmation.prototype[p$8.formatAction] = function (reminder) {
       var action = reminder.action;
 
-      var formatUser = this[p$7.getLocalised]('formatUser');
+      var formatUser = this[p$8.getLocalised]('formatUser');
       var formattedAction = formatUser(action);
       var PATTERN1 = new RegExp(`\\bthat \\[action\\]`, 'iu');
       var PATTERN2 = new RegExp(`\\bit is \\[action\\]`, 'iu');
@@ -1716,36 +2006,36 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return `to ${ formattedAction }`;
     };
 
-    Confirmation.prototype[p$7.formatTime] = function (reminder) {
+    Confirmation.prototype[p$8.formatTime] = function (reminder) {
       var due = reminder.due;
 
 
-      if (this[p$7.isToday](due)) {
-        var hour = this[p$7.formatHoursAndMinutes](due);
+      if (this[p$8.isToday](due)) {
+        var hour = this[p$8.formatHoursAndMinutes](due);
         return `at ${ hour } today`;
-      } else if (this[p$7.isTomorrow](due)) {
-        var _hour = this[p$7.formatHoursAndMinutes](due);
+      } else if (this[p$8.isTomorrow](due)) {
+        var _hour = this[p$8.formatHoursAndMinutes](due);
         return `at ${ _hour } tomorrow`;
-      } else if (this[p$7.isThisMonth](due)) {
+      } else if (this[p$8.isThisMonth](due)) {
         return moment(due).format('[on the] Do');
       }
 
       return moment(due).format('[on] MMMM [the] Do');
     };
 
-    Confirmation.prototype[p$7.isToday] = function (date) {
+    Confirmation.prototype[p$8.isToday] = function (date) {
       var today = moment().startOf('day');
       var tomorrow = moment().add(1, 'day').startOf('day');
       return moment(date).isBetween(today, tomorrow);
     };
 
-    Confirmation.prototype[p$7.isTomorrow] = function (date) {
+    Confirmation.prototype[p$8.isTomorrow] = function (date) {
       var tomorrow = moment().add(1, 'day').startOf('day');
       var in2days = moment().add(2, 'day').startOf('day');
       return moment(date).isBetween(tomorrow, in2days);
     };
 
-    Confirmation.prototype[p$7.isThisMonth] = function (date) {
+    Confirmation.prototype[p$8.isThisMonth] = function (date) {
       var thisMonth = moment().startOf('month');
       var nextMonth = moment().add(1, 'month').startOf('month');
       return moment(date).isBetween(thisMonth, nextMonth);
@@ -1759,7 +2049,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    Confirmation.prototype[p$7.formatHoursAndMinutes] = function (date) {
+    Confirmation.prototype[p$8.formatHoursAndMinutes] = function (date) {
       date = moment(date);
       var format = void 0;
 
@@ -1904,7 +2194,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
    *     * Generate placeholders.punctuation
    */
 
-  var p$6 = Object.freeze({
+  var p$7 = Object.freeze({
     // Properties
     confirmation: Symbol('confirmation'),
     patterns: Symbol('patterns'),
@@ -1961,10 +2251,10 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       classCallCheck(this, ReminderParser);
 
       this.locale = locale;
-      this[p$6.confirmation] = new Confirmation(locale);
-      this[p$6.patterns] = {};
+      this[p$7.confirmation] = new Confirmation(locale);
+      this[p$7.patterns] = {};
 
-      this[p$6.init]();
+      this[p$7.init]();
 
       Object.seal(this);
     }
@@ -1980,9 +2270,9 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           return reject(null);
         }
 
-        phrase = _this[p$6.normalise](phrase);
+        phrase = _this[p$7.normalise](phrase);
 
-        var _p$parseDatetime = _this[p$6.parseDatetime](phrase);
+        var _p$parseDatetime = _this[p$7.parseDatetime](phrase);
 
         var due = _p$parseDatetime.due;
         var processedPhrase = _p$parseDatetime.processedPhrase;
@@ -1993,7 +2283,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           return reject(null);
         }
 
-        var successful = _this[p$6.patterns][_this.locale].some(function (pattern) {
+        var successful = _this[p$7.patterns][_this.locale].some(function (pattern) {
           if (!pattern.regexp.test(processedPhrase)) {
             return false;
           }
@@ -2001,13 +2291,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
           var segments = pattern.regexp.exec(processedPhrase);
           segments.shift();
 
-          var recipients = _this[p$6.parseUsers](segments[pattern.placeholders.users], phrase);
-          var action = _this[p$6.parseAction](segments[pattern.placeholders.action], phrase);
+          var recipients = _this[p$7.parseUsers](segments[pattern.placeholders.users], phrase);
+          var action = _this[p$7.parseAction](segments[pattern.placeholders.action], phrase);
 
           // The original pattern matching the intent.
           var match = pattern.match;
 
-          var confirmation = _this[p$6.confirmation].getReminderMessage({
+          var confirmation = _this[p$7.confirmation].getReminderMessage({
             recipients,
             action,
             due,
@@ -2025,7 +2315,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       });
     };
 
-    ReminderParser.prototype[p$6.parseUsers] = function () {
+    ReminderParser.prototype[p$7.parseUsers] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       return string.split(PATTERNS[this.locale].listBreaker).map(function (user) {
@@ -2033,13 +2323,13 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       });
     };
 
-    ReminderParser.prototype[p$6.parseAction] = function () {
+    ReminderParser.prototype[p$7.parseAction] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       return string.trim();
     };
 
-    ReminderParser.prototype[p$6.parseDatetime] = function () {
+    ReminderParser.prototype[p$7.parseDatetime] = function () {
       var phrase = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
       phrase = phrase.trim();
@@ -2062,7 +2352,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       return { due, processedPhrase };
     };
 
-    ReminderParser.prototype[p$6.normalise] = function () {
+    ReminderParser.prototype[p$7.normalise] = function () {
       var string = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
       var locale = arguments.length <= 1 || arguments[1] === undefined ? this.locale : arguments[1];
 
@@ -2080,17 +2370,17 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    ReminderParser.prototype[p$6.init] = function () {
+    ReminderParser.prototype[p$7.init] = function () {
       var _this2 = this;
 
       Object.keys(PATTERNS).forEach(function (locale) {
-        _this2[p$6.patterns][locale] = PATTERNS[locale].patterns.map(function (phrase) {
-          return _this2[p$6.buildPatterns](locale, phrase, PATTERNS[locale].placeholders);
+        _this2[p$7.patterns][locale] = PATTERNS[locale].patterns.map(function (phrase) {
+          return _this2[p$7.buildPatterns](locale, phrase, PATTERNS[locale].placeholders);
         });
       });
     };
 
-    ReminderParser.prototype[p$6.buildPatterns] = function () {
+    ReminderParser.prototype[p$7.buildPatterns] = function () {
       var locale = arguments.length <= 0 || arguments[0] === undefined ? this.locale : arguments[0];
 
       var _this3 = this;
@@ -2098,8 +2388,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       var match = arguments.length <= 1 || arguments[1] === undefined ? '' : arguments[1];
       var placeholders = arguments[2];
 
-      var phrase = this[p$6.normalise](match, locale);
-      var tokens = this[p$6.splitOnPlaceholders](phrase);
+      var phrase = this[p$7.normalise](match, locale);
+      var tokens = this[p$7.splitOnPlaceholders](phrase);
       var order = {};
       var placeholderIndex = 0;
 
@@ -2123,7 +2413,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         }
 
         // Leading and trailing spaces are changed to word boundary.
-        return _this3[p$6.escape](token).replace(new RegExp('^ ', 'u'), '\\b').replace(new RegExp(' $', 'u'), '\\b');
+        return _this3[p$7.escape](token).replace(new RegExp('^ ', 'u'), '\\b').replace(new RegExp(' $', 'u'), '\\b');
       });
 
       var regexp = new RegExp(`^${ pattern.join('') }$`, 'iu');
@@ -2140,7 +2430,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    ReminderParser.prototype[p$6.splitOnPlaceholders] = function (phrase) {
+    ReminderParser.prototype[p$7.splitOnPlaceholders] = function (phrase) {
       var tokens = [''];
       var index = 0;
 
@@ -2169,7 +2459,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    ReminderParser.prototype[p$6.escape] = function (string) {
+    ReminderParser.prototype[p$7.escape] = function (string) {
       return string.replace(new RegExp('\\.', 'gu'), '\\.').replace(new RegExp('\\/', 'gu'), '\\/').replace(new RegExp('\\(', 'gu'), '\\(').replace(new RegExp('\\)', 'gu'), '\\)');
     };
 
@@ -2194,7 +2484,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return QueryParser;
   }();
 
-  var p$5 = Object.freeze({
+  var p$6 = Object.freeze({
     // Properties
     parsers: Symbol('parsers')
   });
@@ -2203,7 +2493,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     function IntentParser() {
       classCallCheck(this, IntentParser);
 
-      this[p$5.parsers] = [new ReminderParser(), new QueryParser()];
+      this[p$6.parsers] = [new ReminderParser(), new QueryParser()];
 
       window.intentParser = this;
     }
@@ -2211,7 +2501,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     IntentParser.prototype.parse = function parse() {
       var phrase = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      var promises = this[p$5.parsers].map(function (parser) {
+      var promises = this[p$6.parsers].map(function (parser) {
         return parser.parse(phrase);
       });
 
@@ -2228,7 +2518,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return IntentParser;
   }();
 
-  var p$1 = Object.freeze({
+  var p$3 = Object.freeze({
     // Properties
     wakewordRecogniser: Symbol('wakewordRecogniser'),
     speechRecogniser: Symbol('speechRecogniser'),
@@ -2273,14 +2563,14 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, EVENT_INTERFACE));
 
-      _this[p$1.idle] = true;
+      _this[p$3.idle] = true;
 
-      _this[p$1.speechRecogniser] = new SpeechRecogniser();
-      _this[p$1.speechSynthesis] = new SpeechSynthesis();
-      _this[p$1.wakewordRecogniser] = new WakeWordRecogniser();
-      _this[p$1.intentParser] = new IntentParser();
+      _this[p$3.speechRecogniser] = new SpeechRecogniser();
+      _this[p$3.speechSynthesis] = new SpeechSynthesis();
+      _this[p$3.wakewordRecogniser] = new WakeWordRecogniser();
+      _this[p$3.intentParser] = new IntentParser();
 
-      _this[p$1.wakewordRecogniser].setOnKeywordSpottedCallback(function () {
+      _this[p$3.wakewordRecogniser].setOnKeywordSpottedCallback(function () {
         _this.emit(EVENT_INTERFACE[2], { type: EVENT_INTERFACE[2] });
 
         _this.startSpeechRecognition();
@@ -2297,16 +2587,16 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     SpeechController.prototype.startSpeechRecognition = function startSpeechRecognition() {
       var _this2 = this;
 
-      this[p$1.idle] = false;
+      this[p$3.idle] = false;
 
-      return this[p$1.stopListeningForWakeword]().then(this[p$1.listenForUtterance].bind(this)).then(this[p$1.handleSpeechRecognitionEnd].bind(this)).catch(function (err) {
+      return this[p$3.stopListeningForWakeword]().then(this[p$3.listenForUtterance].bind(this)).then(this[p$3.handleSpeechRecognitionEnd].bind(this)).catch(function (err) {
         console.log('startSpeechRecognition err', err);
         _this2.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4] });
       });
     };
 
     SpeechController.prototype.stopSpeechRecognition = function stopSpeechRecognition() {
-      return this[p$1.speechRecogniser].abort().then(this.startListeningForWakeword.bind(this));
+      return this[p$3.speechRecogniser].abort().then(this.startListeningForWakeword.bind(this));
     };
 
     /**
@@ -2320,33 +2610,33 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     SpeechController.prototype.speak = function speak() {
       var text = arguments.length <= 0 || arguments[0] === undefined ? '' : arguments[0];
 
-      return this[p$1.speechSynthesis].speak(text);
+      return this[p$3.speechSynthesis].speak(text);
     };
 
     SpeechController.prototype.startListeningForWakeword = function startListeningForWakeword() {
       this.emit(EVENT_INTERFACE[0], { type: EVENT_INTERFACE[0] });
-      this[p$1.idle] = true;
+      this[p$3.idle] = true;
 
-      return this[p$1.wakewordRecogniser].startListening();
+      return this[p$3.wakewordRecogniser].startListening();
     };
 
-    SpeechController.prototype[p$1.stopListeningForWakeword] = function () {
+    SpeechController.prototype[p$3.stopListeningForWakeword] = function () {
       this.emit(EVENT_INTERFACE[1], { type: EVENT_INTERFACE[1] });
-      return this[p$1.wakewordRecogniser].stopListening();
+      return this[p$3.wakewordRecogniser].stopListening();
     };
 
-    SpeechController.prototype[p$1.listenForUtterance] = function () {
+    SpeechController.prototype[p$3.listenForUtterance] = function () {
       this.emit(EVENT_INTERFACE[3], { type: EVENT_INTERFACE[3] });
-      return this[p$1.speechRecogniser].listenForUtterance();
+      return this[p$3.speechRecogniser].listenForUtterance();
     };
 
-    SpeechController.prototype[p$1.handleSpeechRecognitionEnd] = function (result) {
+    SpeechController.prototype[p$3.handleSpeechRecognitionEnd] = function (result) {
       var _this3 = this;
 
       this.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4], result });
 
       // Parse intent
-      this[p$1.intentParser].parse(result.utterance).then(function (reminder) {
+      this[p$3.intentParser].parse(result.utterance).then(function (reminder) {
         _this3.emit(EVENT_INTERFACE[5], {
           type: EVENT_INTERFACE[5],
           result: reminder
@@ -2365,239 +2655,10 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     createClass(SpeechController, [{
       key: 'idle',
       get: function () {
-        return this[p$1.idle];
+        return this[p$3.idle];
       }
     }]);
     return SpeechController;
-  }(EventDispatcher);
-
-  // Prefix all entries to avoid collisions.
-  var PREFIX = 'cue-';
-
-  var ORIGIN = 'https://calendar.knilxof.org';
-
-  /**
-   * API version to use (currently not configurable).
-   * @type {number}
-   * @const
-   */
-  var API_VERSION = 1;
-
-  /**
-   * Regex to match upper case literals.
-   * @type {RegExp}
-   * @const
-   */
-  var UPPER_CASE_REGEX = /([A-Z])/g;
-
-  var p$9 = Object.freeze({
-    values: Symbol('values'),
-    storage: Symbol('storage'),
-
-    // Private methods.
-    updateSetting: Symbol('updateSetting'),
-    stringToSettingTypedValue: Symbol('stringToSettingTypedValue'),
-    getDefaultSettingValue: Symbol('getDefaultSettingValue'),
-    onStorage: Symbol('onStorage')
-  });
-
-  // Definition of all available settings and their default values (if needed).
-  var settings = Object.freeze({
-    // String settings.
-    SESSION: Object.freeze({ key: 'session' }),
-    IS_HUB: Object.freeze({ key: 'isHub', type: 'boolean' })
-  });
-
-  var Settings = function (_EventDispatcher) {
-    inherits(Settings, _EventDispatcher);
-
-    function Settings() {
-      var storage = arguments.length <= 0 || arguments[0] === undefined ? localStorage : arguments[0];
-      classCallCheck(this, Settings);
-
-      // Not all browsers have localStorage supported or activated.
-      var _this = possibleConstructorReturn(this, _EventDispatcher.call(this));
-
-      _this[p$9.storage] = storage || {
-        getItem: function () {
-          return null;
-        },
-        setItem: function () {},
-        removeItem: function () {},
-        clear: function () {}
-      };
-
-      _this[p$9.values] = new Map();
-
-      Object.keys(settings).forEach(function (settingName) {
-        var setting = settings[settingName];
-        var settingStringValue = _this[p$9.storage].getItem(`${ PREFIX }${ setting.key }`);
-
-        // Setting values directly to avoid firing events on startup.
-        _this[p$9.values].set(setting, _this[p$9.stringToSettingTypedValue](setting, settingStringValue));
-      });
-
-      window.addEventListener('storage', _this[p$9.onStorage].bind(_this));
-
-      Object.seal(_this);
-      return _this;
-    }
-
-    /**
-     * Iterates through all known settings and sets default value for all of them.
-     *
-     * @return {Promise}
-     */
-    Settings.prototype.clear = function clear() {
-      var _this2 = this;
-
-      return new Promise(function (resolve) {
-        Object.keys(settings).forEach(function (settingName) {
-          var setting = settings[settingName];
-          _this2[p$9.updateSetting](setting, _this2[p$9.getDefaultSettingValue](setting));
-        });
-        resolve();
-      });
-    };
-
-    /**
-     * Tries to update setting with new value. If value has changed corresponding
-     * event will be emitted. New value is also persisted to the local storage.
-     *
-     * @param {Object} setting Setting description object.
-     * @param {number|boolean|string?} newValue New value for specified setting.
-     * @private
-     */
-
-
-    Settings.prototype[p$9.updateSetting] = function (setting, newValue) {
-      var currentValue = this[p$9.values].get(setting);
-      if (currentValue === newValue) {
-        return;
-      }
-
-      this[p$9.values].set(setting, newValue);
-
-      if (newValue !== this[p$9.getDefaultSettingValue](setting)) {
-        this[p$9.storage].setItem(`${ PREFIX }${ setting.key }`, newValue);
-      } else {
-        this[p$9.storage].removeItem(`${ PREFIX }${ setting.key }`);
-      }
-
-      this.emit(setting.key.replace(UPPER_CASE_REGEX, function (part) {
-        return `-${ part.toLowerCase() }`;
-      }), newValue);
-    };
-
-    /**
-     * Converts setting raw string value to the typed one depending on the setting
-     * type.
-     *
-     * @param {Object} setting Setting description object.
-     * @param {string?} stringValue Raw string setting value or null.
-     * @return {number|boolean|string|null}
-     * @private
-     */
-
-
-    Settings.prototype[p$9.stringToSettingTypedValue] = function (setting, stringValue) {
-      // If string is null, we should return default value for this setting or
-      // default value for setting type.
-      if (stringValue === null) {
-        return this[p$9.getDefaultSettingValue](setting);
-      } else if (setting.type === 'boolean') {
-        return stringValue === 'true';
-      } else if (setting.type === 'number') {
-        return Number(stringValue);
-      }
-
-      return stringValue;
-    };
-
-    /**
-     * Gets default typed value for the specified setting.
-     *
-     * @param {Object} setting Setting description object.
-     * @return {number|boolean|string|null}
-     * @private
-     */
-
-
-    Settings.prototype[p$9.getDefaultSettingValue] = function (setting) {
-      if (setting.defaultValue !== undefined) {
-        return setting.defaultValue;
-      }
-
-      // Default value for this setting is not specified, let's return default
-      // value for setting type (boolean, number or string).
-      if (setting.type === 'boolean') {
-        return false;
-      } else if (setting.type === 'number') {
-        return 0;
-      }
-
-      return null;
-    };
-
-    /**
-     * Handles localStorage "storage" event.
-     *
-     * @param {StorageEvent} evt StorageEvent instance.
-     * @private
-     */
-
-
-    Settings.prototype[p$9.onStorage] = function (evt) {
-      if (!evt.key.startsWith(PREFIX)) {
-        return;
-      }
-
-      var key = evt.key.substring(PREFIX.length);
-      var settingName = Object.keys(settings).find(function (settingName) {
-        return settings[settingName].key === key;
-      });
-
-      if (!settingName) {
-        console.warn(`Changed unknown storage entry with app specific prefix: ${ evt.key }`);
-        return;
-      }
-
-      var setting = settings[settingName];
-
-      this[p$9.updateSetting](setting, this[p$9.stringToSettingTypedValue](setting, evt.newValue));
-    };
-
-    createClass(Settings, [{
-      key: 'session',
-      get: function () {
-        return this[p$9.values].get(settings.SESSION);
-      },
-      set: function (value) {
-        this[p$9.updateSetting](settings.SESSION, value);
-      }
-    }, {
-      key: 'isHub',
-      get: function () {
-        return this[p$9.values].get(settings.IS_HUB);
-      },
-      set: function (value) {
-        this[p$9.updateSetting](settings.IS_HUB, value);
-      }
-
-      // Getters only.
-
-    }, {
-      key: 'origin',
-      get: function () {
-        return ORIGIN;
-      }
-    }, {
-      key: 'apiVersion',
-      get: function () {
-        return API_VERSION;
-      }
-    }]);
-    return Settings;
   }(EventDispatcher);
 
   function HttpError(statusCode) {
@@ -3109,7 +3170,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
   }();
 
   // Private members.
-  var p$8 = Object.freeze({
+  var p$9 = Object.freeze({
     // Private properties.
     settings: Symbol('settings'),
     net: Symbol('net'),
@@ -3130,18 +3191,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       // Private properties.
       var _this = possibleConstructorReturn(this, _EventDispatcher.call(this, ['login', 'online', 'push-message']));
 
-      _this[p$8.settings] = settings || new Settings();
-      _this[p$8.net] = net || new Network(_this[p$8.settings]);
-      _this[p$8.api] = new API(_this[p$8.net], _this[p$8.settings]);
-      _this[p$8.webPush] = new WebPush(_this[p$8.api], _this[p$8.settings]);
+      _this[p$9.settings] = settings || new Settings();
+      _this[p$9.net] = net || new Network(_this[p$9.settings]);
+      _this[p$9.api] = new API(_this[p$9.net], _this[p$9.settings]);
+      _this[p$9.webPush] = new WebPush(_this[p$9.api], _this[p$9.settings]);
 
       // Init
-      _this.reminders = new Reminders$1(_this[p$8.api], _this[p$8.settings]);
+      _this.reminders = new Reminders$1(_this[p$9.api], _this[p$9.settings]);
 
-      _this[p$8.net].on('online', function (online) {
+      _this[p$9.net].on('online', function (online) {
         return _this.emit('online', online);
       });
-      _this[p$8.webPush].on('message', function (msg) {
+      _this[p$9.webPush].on('message', function (msg) {
         return _this.emit('push-message', msg);
       });
 
@@ -3161,8 +3222,8 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     Server.prototype.login = function login(user, password) {
       var _this2 = this;
 
-      return this[p$8.api].post('login', { user, password }).then(function (res) {
-        _this2[p$8.settings].session = res.token;
+      return this[p$9.api].post('login', { user, password }).then(function (res) {
+        _this2[p$9.settings].session = res.token;
         _this2.emit('login');
       });
     };
@@ -3175,7 +3236,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
 
 
     Server.prototype.logout = function logout() {
-      this[p$8.settings].session = null;
+      this[p$9.settings].session = null;
       return Promise.resolve();
     };
 
@@ -3192,7 +3253,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
       if (!this.isLoggedIn) {
         return Promise.reject(new Error('Error while subscribing to push notifications: user is not logged in'));
       }
-      return this[p$8.webPush].subscribeToNotifications();
+      return this[p$9.webPush].subscribeToNotifications();
     };
 
     Server.prototype.clearServiceWorker = function clearServiceWorker() {
@@ -3208,18 +3269,18 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     createClass(Server, [{
       key: 'online',
       get: function () {
-        return this[p$8.net].online;
+        return this[p$9.net].online;
       }
     }, {
       key: 'isLoggedIn',
       get: function () {
-        return !!this[p$8.settings].session;
+        return !!this[p$9.settings].session;
       }
     }]);
     return Server;
   }(EventDispatcher);
 
-  var p = Object.freeze({
+  var p$2 = Object.freeze({
     controllers: Symbol('controllers'),
     speechController: Symbol('speechController'),
     server: Symbol('server'),
@@ -3233,56 +3294,56 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
   var MainController = function (_BaseController) {
     inherits(MainController, _BaseController);
 
-    function MainController() {
+    function MainController(props) {
       classCallCheck(this, MainController);
 
-      var _this = possibleConstructorReturn(this, _BaseController.call(this));
+      var _this = possibleConstructorReturn(this, _BaseController.call(this, props));
 
       var mountNode = document.querySelector('.app-view-container');
       var speechController = new SpeechController();
-      var settings = new Settings();
+      var settings = _this.settings;
       var server = new Server({ settings });
       var options = { mountNode, speechController, server, settings };
 
       var usersController = new UsersController(options);
       var remindersController = new RemindersController(options);
 
-      _this[p.controllers] = {
+      _this[p$2.controllers] = {
         '': usersController,
         'users/(.+)': usersController,
         'reminders': remindersController
       };
 
-      _this[p.speechController] = speechController;
-      _this[p.server] = server;
-      _this[p.settings] = settings;
-      _this[p.initHub]();
+      _this[p$2.speechController] = speechController;
+      _this[p$2.server] = server;
+      _this[p$2.settings] = settings;
+      _this[p$2.initHub]();
 
-      window.addEventListener('hashchange', _this[p.onHashChanged].bind(_this));
+      window.addEventListener('hashchange', _this[p$2.onHashChanged].bind(_this));
       return _this;
     }
 
     MainController.prototype.main = function main() {
       var _this2 = this;
 
-      this[p.speechController].start().then(function () {
+      this[p$2.speechController].start().then(function () {
         console.log('Speech controller started');
       });
 
-      this[p.server].on('login', function () {
-        return _this2[p.subscribeToNotifications]();
+      this[p$2.server].on('login', function () {
+        return _this2[p$2.subscribeToNotifications]();
       });
-      this[p.server].on('push-message', function (message) {
-        if (_this2[p.settings].isHub) {
-          _this2[p.speechController].speak(`${ message.title }: ${ message.body }`);
+      this[p$2.server].on('push-message', function (message) {
+        if (_this2[p$2.settings].isHub) {
+          _this2[p$2.speechController].speak(`${ message.title }: ${ message.body }`);
         }
       });
 
       location.hash = '';
 
       setTimeout(function () {
-        if (_this2[p.server].isLoggedIn) {
-          _this2[p.subscribeToNotifications]();
+        if (_this2[p$2.server].isLoggedIn) {
+          _this2[p$2.subscribeToNotifications]();
           location.hash = 'reminders';
         } else {
           location.hash = 'users/login';
@@ -3301,10 +3362,10 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     MainController.prototype.clear = function clear() {
       var ignoreServiceWorker = arguments.length <= 0 || arguments[0] === undefined ? true : arguments[0];
 
-      var promises = [this[p.settings].clear()];
+      var promises = [this[p$2.settings].clear()];
 
       if (!ignoreServiceWorker) {
-        promises.push(this[p.server].clearServiceWorker());
+        promises.push(this[p$2.server].clearServiceWorker());
       }
 
       return Promise.all(promises);
@@ -3317,24 +3378,24 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    MainController.prototype[p.onHashChanged] = function () {
+    MainController.prototype[p$2.onHashChanged] = function () {
       var route = window.location.hash.slice(1);
 
-      for (var routeName of Object.keys(this[p.controllers])) {
+      for (var routeName of Object.keys(this[p$2.controllers])) {
         var match = route.match(new RegExp(`^${ routeName }$`));
         if (match) {
           var _p$controllers$routeN;
 
-          (_p$controllers$routeN = this[p.controllers][routeName]).main.apply(_p$controllers$routeN, toConsumableArray(match.slice(1)));
+          (_p$controllers$routeN = this[p$2.controllers][routeName]).main.apply(_p$controllers$routeN, toConsumableArray(match.slice(1)));
           break;
         }
       }
 
-      this[p.initHub]();
+      this[p$2.initHub]();
     };
 
-    MainController.prototype[p.subscribeToNotifications] = function () {
-      this[p.server].subscribeToNotifications().catch(function (err) {
+    MainController.prototype[p$2.subscribeToNotifications] = function () {
+      this[p$2.server].subscribeToNotifications().catch(function (err) {
         console.error('Error while subscribing to notifications:', err);
       });
     };
@@ -3349,7 +3410,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
      */
 
 
-    MainController.prototype[p.initHub] = function () {
+    MainController.prototype[p$2.initHub] = function () {
       var match = location.hash.match(/\bhub=(.+)(&|$)/);
 
       if (match) {
@@ -3357,7 +3418,7 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
         var isHub = matchedValue === '1' || matchedValue === 'true';
 
         console.log('Setting the `isHub` property to ', isHub);
-        this[p.settings].isHub = isHub;
+        this[p$2.settings].isHub = isHub;
 
         // Redirect to the root of the application.
         location.hash = '';
@@ -3368,8 +3429,12 @@ define(['components/react', 'components/react-dom', 'components/moment', 'compon
     return MainController;
   }(BaseController);
 
-  var mainController = new MainController();
-  window.app = mainController;
+  var options = { settings: new Settings() };
+
+  new Analytics(options);
+  var mainController = new MainController(options);
   mainController.main();
+
+  window.app = mainController;
 
 });
