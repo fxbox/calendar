@@ -79,6 +79,7 @@ export default class SpeechController extends EventDispatcher {
       .catch((err) => {
         console.log('startSpeechRecognition err', err);
         this.emit(EVENT_INTERFACE[4], { type: EVENT_INTERFACE[4] });
+        this.stopSpeechRecognition();
       });
   }
 
