@@ -10,7 +10,7 @@ describe('intent-parser', function() {
           recipients: ['me'],
           action: 'go to the office',
           confirmation:
-            'OK, I\'ll remind you to go to the office at 5 PM today.',
+            'OK, I\'ll remind you to go to the office at 5 P.M. today.',
           due: moment({ hour: 17 }).toDate().getTime(),
         },
       },
@@ -20,7 +20,7 @@ describe('intent-parser', function() {
           recipients: ['John'],
           action: 'take out trash',
           confirmation:
-            'OK, I\'ll remind John to take out trash at 12 PM tomorrow.',
+            'OK, I\'ll remind John to take out trash at 12 P.M. tomorrow.',
           due: moment({ hour: 12 }).add(1, 'day').toDate().getTime(),
         },
       },
