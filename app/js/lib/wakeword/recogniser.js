@@ -1,15 +1,26 @@
 import PocketSphinx from 'components/webaudiokws';
 
+function promiseTimeout(p, timeout) {
+  const timeoutPromise = new Promise((resolve) => {
+    setTimeout(resolve, timeout);
+  });
+
+  return Promise.race([
+    timeoutPromise.then(() => { throw new Error('Timed out'); }),
+    p,
+  ]);
+}
+
 export default class WakeWordRecogniser {
   constructor() {
     this.audioContext = new AudioContext();
 
-    this.audioSource = navigator.mediaDevices.getUserMedia({
+    this.audioSource = promiseTimeout(navigator.mediaDevices.getUserMedia({
       audio: true,
     })
       .then((stream) => {
         return this.audioContext.createMediaStreamSource(stream);
-      })
+      }), 10000)
       .catch((error) => {
         console.error(`Could not getUserMedia: ${error}`);
         throw error;
@@ -18,13 +29,13 @@ export default class WakeWordRecogniser {
     this.recogniser = new PocketSphinx(this.audioContext, {
       pocketSphinxUrl: 'pocketsphinx.js',
       workerUrl: 'js/components/ps-worker.js',
-      args: [['-kws_threshold', '2']],
+      args: [['-kws_threshold', '4']],
     });
 
     const dictionary = {
-      'MAKE': ['M EY K'],
-      'A': ['AH'],
-      'NOTE': ['N OW T'],
+      'MAKE': ['M EY K', 'M AH K'],
+      'A': ['AH', 'EY', 'ER'],
+      'NOTE': ['N OW T', 'N AO T'],
     };
 
     const keywordReady = this.recogniser.addDictionary(dictionary)
