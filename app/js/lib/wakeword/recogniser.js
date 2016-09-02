@@ -1,3 +1,4 @@
+import EventDispatcher from '../common/event-dispatcher';
 import PocketSphinx from 'components/webaudiokws';
 
 function promiseTimeout(p, timeout) {
@@ -11,8 +12,17 @@ function promiseTimeout(p, timeout) {
   ]);
 }
 
-export default class WakeWordRecogniser {
+const EVENT_INTERFACE = [
+  // Emit when the WakeWordRecogniser is ready to start listening
+  'ready',
+
+  // Emit when a word or phrase is recognised.
+  'keywordspotted',
+];
+
+export default class WakeWordRecogniser extends EventDispatcher {
   constructor() {
+    super(EVENT_INTERFACE);
     this.audioContext = new AudioContext();
 
     this.audioSource = promiseTimeout(navigator.mediaDevices.getUserMedia({
@@ -32,6 +42,10 @@ export default class WakeWordRecogniser {
       args: [['-kws_threshold', '4']],
     });
 
+    this.recogniser.on(EVENT_INTERFACE[1], (e) => {
+      this.emit(EVENT_INTERFACE[1], e);
+    });
+
     const dictionary = {
       'MAKE': ['M EY K', 'M AH K'],
       'A': ['AH', 'EY', 'ER'],
@@ -42,6 +56,10 @@ export default class WakeWordRecogniser {
       .then(() => this.recogniser.addKeyword('MAKE A NOTE'));
 
     this.ready = Promise.all([keywordReady, this.audioSource]);
+    this.ready.then(() => {
+      this.emit(EVENT_INTERFACE[0]);
+    });
+
     Object.seal(this);
   }
 
@@ -66,9 +84,5 @@ export default class WakeWordRecogniser {
         source.disconnect();
         this.recogniser.disconnect();
       });
-  }
-
-  setOnKeywordSpottedCallback(fn) {
-    this.recogniser.on('keywordspotted', fn);
   }
 }
