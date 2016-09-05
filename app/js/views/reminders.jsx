@@ -36,12 +36,13 @@ export default class Reminders extends React.Component {
         console.log('Reminders loaded');
       });
 
-    // Refresh the page every 5 minutes if idle.
+    // Refresh the page every 10 seconds if idle.
     this.refreshInterval = setInterval(() => {
-      if (this.speechController.idle) {
-        location.reload(true);
-      }
-    }, 5 * 60 * 1000);
+      this.refreshReminders()
+        .then(() => {
+          console.log('Reminders loaded');
+        });
+    }, 10 * 1000);
 
     this.speechController.on('wakelistenstart', this.debugEvent);
     this.speechController.on('wakelistenstop', this.debugEvent);
