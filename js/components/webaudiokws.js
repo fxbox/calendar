@@ -2719,6 +2719,26 @@ define(function () { 'use strict';
 
 	    this[_output] = decimationNode;
 
+	    /*
+	    this.voiceDetected = false;
+
+	    const vadOptions = {
+	      source: this[_input],
+	      voice_start: () => {
+	        console.log('Voice activity detected');
+	        this.voiceDetected = true;
+	      },
+	      voice_stop: () => {
+	        console.log('Voice activity stopped');
+	        this.voiceDetected = false;
+	      },
+	    };
+
+	    this.vad = new VAD(vadOptions);
+	    // Turn on logging for debug
+	    this.vad.triggerLog();
+	    */
+
 	    this[p.setupEvents]();
 	    // Kick off initialization.
 	    this[p.initialization] = this[p.pocketSphinx].initialize();
@@ -2743,6 +2763,7 @@ define(function () { 'use strict';
 	  // listen for the 'data' event after hooking up to the WebAudio API for input,
 	  // to get buffered 16KHz Int16Array buffers.
 	  [p.decimate](audioProcessingEvent) {
+
 	    const inputBuffer = audioProcessingEvent.inputBuffer;
 	    const outputBuffer = audioProcessingEvent.outputBuffer;
 
@@ -2803,6 +2824,10 @@ define(function () { 'use strict';
 
 	  [p.setupEvents]() {
 	    this[p.pocketSphinx].on('keywordspotted', (event) => {
+	//    if (!this.voiceDetected) { return };
+
+	//    this.voiceDetected = false;
+	//    console.log('Voice activity stopped');
 	      this.emit('keywordspotted', event);
 	    });
 	  }
