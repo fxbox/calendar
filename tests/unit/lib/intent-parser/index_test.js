@@ -44,7 +44,7 @@ describe('intent-parser', function() {
         parsed: {
           recipients: ['Sandra'],
           action: null,
-          confirmation: undefined,
+          confirmation: () => {},
           // Always next Wednesday.
           due: moment({ hour: 22 }).day(3).isBefore(moment({ hour: 22 })) ?
             moment({ hour: 22 }).day(10).toDate().getTime() :
@@ -61,7 +61,11 @@ describe('intent-parser', function() {
         return intentParser.parse(sentence).then((result) => {
           assert.deepEqual(result.recipients, parsed.recipients);
           assert.equal(result.action, parsed.action);
-          assert.equal(result.confirmation, parsed.confirmation);
+          if (typeof parsed.confirmation === 'string') {
+            assert.equal(result.confirmation, parsed.confirmation);
+          } else {
+            assert.equal(typeof result.confirmation, 'function');
+          }
           assert.equal(result.due, parsed.due);
           assert.equal(result.intent, parsed.intent);
         });

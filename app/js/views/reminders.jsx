@@ -22,7 +22,7 @@ export default class Reminders extends React.Component {
     this.microphone = null;
     this.debugEvent = this.debugEvent.bind(this);
     this.onWakeWord = this.onWakeWord.bind(this);
-    this.onReminder = this.onReminder.bind(this);
+    this.onVoiceCommand = this.onVoiceCommand.bind(this);
     this.onParsingFailure = this.onParsingFailure.bind(this);
     this.onWebPushMessage = this.onWebPushMessage.bind(this);
     this.refreshReminders = this.refreshReminders.bind(this);
@@ -53,7 +53,7 @@ export default class Reminders extends React.Component {
     this.speechController.on('reminder', this.debugEvent);
 
     this.speechController.on('wakeheard', this.onWakeWord);
-    this.speechController.on('reminder', this.onReminder);
+    this.speechController.on('reminder', this.onVoiceCommand);
     this.speechController.on('parsing-failed', this.onParsingFailure);
     this.server.on('push-message', this.onWebPushMessage);
   }
@@ -69,7 +69,7 @@ export default class Reminders extends React.Component {
     this.speechController.off('reminder', this.debugEvent);
 
     this.speechController.off('wakeheard', this.onWakeWord);
-    this.speechController.off('reminder', this.onReminder);
+    this.speechController.off('reminder', this.onVoiceCommand);
     this.speechController.off('parsing-failed', this.onParsingFailure);
     this.server.off('push-message', this.onWebPushMessage);
   }
@@ -104,24 +104,32 @@ export default class Reminders extends React.Component {
     this.microphone.startListeningToSpeech();
   }
 
-  onReminder(evt) {
-    const { intent, recipients, action, due, confirmation } = evt.result;
-
-    if (intent !== 'reminder') {
-      console.info('Only intent of type `reminder` are supported now.');
-      const message = 'I can only understand new reminders. ' +
-        'Try saying "Remind me to go the hairdresser tomorrow at 5pm".';
-      this.toaster.info(message);
-      this.speechController.speak(message)
-        .then(() => {
-          this.toaster.hide();
-          this.speechController.startListeningForWakeword();
-        });
-      return;
-    }
-
+  onVoiceCommand({ result }) {
     this.microphone.stopListeningToSpeech();
 
+    switch (result.intent) {
+      case 'reminder':
+        return this.onReminder(result);
+
+      case 'query':
+        return this.onQuery(result);
+
+      default: {
+        console.info('Only intent of type `reminder` are supported now.');
+        const message = 'I can only understand new reminders. ' +
+          'Try saying "Remind me to go the hairdresser tomorrow at 5pm".';
+        this.toaster.info(message);
+        this.speechController.speak(message)
+          .then(() => {
+            this.toaster.hide();
+            this.speechController.startListeningForWakeword();
+          });
+        break;
+      }
+    }
+  }
+
+  onReminder({ recipients, action, due, confirmation }) {
     // @todo Nice to have: optimistic update.
     // https://github.com/fxbox/calendar/issues/32
     this.server.reminders
@@ -156,6 +164,35 @@ export default class Reminders extends React.Component {
             this.toaster.hide();
             this.speechController.startListeningForWakeword();
           });
+      });
+  }
+
+  onQuery({ recipients, due }) {
+    if (recipients.length !== 1) {
+      console.error('Query must be have only 1 recipient.');
+    }
+
+    // Reminders last for 3 hours by convention.
+    const reminder = this.state.reminders.find((reminder) => {
+      return reminder.recipients.includes(recipients[0])
+        && reminder.due <= due && due <= (reminder.due + 3 * 60 * 60 * 1000);
+    });
+
+    console.log(reminder);
+    let message;
+
+    if (!reminder) {
+      message = 'I don\'t have any appointment at that time.';
+    } else {
+      message = `You're busy with ${reminder.action}.`;
+    }
+
+    this.toaster.warning(message);
+    this.speechController.speak(message)
+      .then(() => {
+        console.log('Utterance terminated.');
+        this.toaster.hide();
+        this.speechController.startListeningForWakeword();
       });
   }
 
